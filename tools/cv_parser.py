@@ -7,6 +7,7 @@ def parse_pdf(file_path):
 
 def parse_docx(file_path):
     doc = docx.Document(file_path)
+    print(f"Document text: {[para.text for para in doc.paragraphs]}")
     return "\n".join([para.text for para in doc.paragraphs])
 
 def parse_cv(file_path):

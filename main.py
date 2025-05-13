@@ -14,7 +14,7 @@ if not os.path.exists("logs"):
 
 # Configure logging to save logs in the logs folder
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.WARNING,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
         logging.FileHandler("logs/backend.log"),
@@ -23,15 +23,6 @@ logging.basicConfig(
 )
 
 app = FastAPI()
-
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Adjust this to specific origins in production
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):

@@ -13,9 +13,9 @@
     <h1>CV Analyzer</h1>
     <form id="upload-form" action="/process" method="POST" enctype="multipart/form-data">
         <label for="cv_file">Upload CV:</label><br>
-        <input type="file" id="cv_file" name="file" accept=".pdf,.doc,.docx,.txt" required><br><br>
+        <input type="file" id="cv_file" name="cv_file" accept=".pdf,.doc,.docx,.txt" required><br><br>
         <label for="job_text">Job Description:</label><br>
-        <textarea id="job_text" name="job_description" required></textarea><br><br>
+        <textarea id="job_text" name="job_text" required></textarea><br><br>
         <button type="submit">Analyze</button>
     </form>
     {% if result %}

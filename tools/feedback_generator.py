@@ -1,46 +1,54 @@
 import os
-from langchain_community.llms import OpenAI
 from tools.cv_parser import parse_cv
 from tools.skill_matcher import match_skills
 from config import load_config
+from langchain_openai import ChatOpenAI
+from langchain_core.prompts import PromptTemplate
+from langchain_core.output_parsers import StrOutputParser
 
-# Load configuration
-config = load_config()
+# Load config and API key
+config = load_config(".env")
+OPENAI_API_KEY = config.openai_api_key
+
+# Create shared model instance
+llm = ChatOpenAI(
+    model="gpt-3.5-turbo",
+    temperature=0.7,
+    openai_api_key=OPENAI_API_KEY
+)
+
+# Define reusable output parser
+parser = StrOutputParser()
 
 def generate_feedback(matched_skills, missing_skills, cv_file_path):
-    # Pass the API key to the OpenAI client
-    llm = OpenAI(model_name="gpt-3.5-turbo", temperature=0.7, openai_api_key=config.openai_api_key)
-
-    # Analyze the CV as a whole
+    # Parse the CV text
     cv_text = parse_cv(cv_file_path)
-    overall_analysis_prompt = (
+
+    # Prompts
+    overall_template = PromptTemplate.from_template(
         "You are a career coach. Analyze the following CV text and provide an overall assessment, including strengths, weaknesses, and suggestions for improvement. "
-        "Focus on structure, content quality, and presentation.\n"
-        f"CV Text: {cv_text}\n"
-        "Overall Analysis:"
+        "Focus on structure, content quality, and presentation.\nCV Text: {cv_text}\nOverall Analysis:"
     )
-    overall_analysis = llm(overall_analysis_prompt)
-
-    # Refined positive feedback prompt
-    positive_prompt = (
+    positive_template = PromptTemplate.from_template(
         "You are a career coach. Highlight the strengths of the CV based on the following matched skills. "
-        "Focus on clarity, formatting, and effective communication of achievements.\n"
-        f"Matched Skills: {matched_skills}\n"
-        "Positive Feedback:"
+        "Focus on clarity, formatting, and effective communication of achievements.\nMatched Skills: {matched_skills}\nPositive Feedback:"
     )
-
-    # Refined negative feedback prompt
-    negative_prompt = (
+    negative_template = PromptTemplate.from_template(
         "You are a career coach. Provide constructive feedback on the CV based on the following missing skills. "
-        "Focus on missing details, poor organization, or irrelevant information.\n"
-        f"Missing Skills: {missing_skills}\n"
-        "Constructive Feedback:"
+        "Focus on missing details, poor organization, or irrelevant information.\nMissing Skills: {missing_skills}\nConstructive Feedback:"
     )
 
-    positive_feedback = llm(positive_prompt)
-    negative_feedback = llm(negative_prompt)
+    # Chain each prompt with the LLM and parser
+    overall_chain = overall_template | llm | parser
+    positive_chain = positive_template | llm | parser
+    negative_chain = negative_template | llm | parser
 
-    # Implement a matching technique for scoring
+    # Run chains
+    overall_analysis = overall_chain.invoke({"cv_text": cv_text})
+    positive_feedback = positive_chain.invoke({"matched_skills": matched_skills})
+    negative_feedback = negative_chain.invoke({"missing_skills": missing_skills})
+
+    # Match score
     score = match_skills(matched_skills, missing_skills)
 
     return {
