@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CV Analyzer Result</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .result { margin-top: 20px; padding: 10px; border: 1px solid #ccc; background: #f9f9f9; }
+    </style>
+</head>
+<body>
+    <h1>CV Analyzer Result</h1>
+    {% if result %}
+        <div class="result">
+            <h2>Result</h2>
+            {% if result.error %}
+                <p style="color: red;">Error: {{ result.error }}</p>
+            {% else %}
+                <pre>{{ result | tojson(indent=2) }}</pre>
+            {% endif %}
+        </div>
+    {% else %}
+        <p>No result to display.</p>
+    {% endif %}
+    <a href="/">Go back to the main page</a>
+</body>
+</html>

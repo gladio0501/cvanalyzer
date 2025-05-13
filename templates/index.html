@@ -11,18 +11,29 @@
 </head>
 <body>
     <h1>CV Analyzer</h1>
-    <form method="post">
-        <label for="cv_text">CV Text:</label><br>
-        <textarea id="cv_text" name="cv_text" required></textarea><br><br>
+    <form id="upload-form" action="/process" method="POST" enctype="multipart/form-data">
+        <label for="cv_file">Upload CV:</label><br>
+        <input type="file" id="cv_file" name="file" accept=".pdf,.doc,.docx,.txt" required><br><br>
         <label for="job_text">Job Description:</label><br>
-        <textarea id="job_text" name="job_text" required></textarea><br><br>
+        <textarea id="job_text" name="job_description" required></textarea><br><br>
         <button type="submit">Analyze</button>
     </form>
     {% if result %}
         <div class="result">
             <h2>Result</h2>
-            <pre>{{ result | tojson(indent=2) }}</pre>
+            {% if result.error %}
+                <p style="color: red;">Error: {{ result.error }}</p>
+            {% else %}
+                <pre>{{ result | tojson(indent=2) }}</pre>
+            {% endif %}
         </div>
     {% endif %}
+    <script>
+        document.querySelector("form").addEventListener("submit", function(event) {
+            console.log("Form submitted");
+            console.log("CV File:", document.getElementById("cv_file").files[0]);
+            console.log("Job Description:", document.getElementById("job_text").value);
+        });
+    </script>
 </body>
 </html>

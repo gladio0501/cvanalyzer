@@ -34,6 +34,9 @@ debug.log
 pip-log.txt
 pip-delete-this-directory.txt
 
+# Ignore log files
+*.log
+
 # Unit test / coverage reports
 htmlcov/
 .tox/

@@ -2,6 +2,14 @@
 from pydantic import BaseModel
 from typing import List, Dict
 
+class CVParseInput(BaseModel):
+    cv_id: str
+    file_path: str
+
+class CVParseOutput(BaseModel):
+    cv_id: str
+    text: str
+
 class CVInput(BaseModel):
     cv_id: str
     cv_text: str
