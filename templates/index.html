@@ -2,32 +2,36 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CV Analyzer</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 40px; }
-        textarea { width: 100%; height: 100px; }
-        .result { margin-top: 20px; padding: 10px; border: 1px solid #ccc; background: #f9f9f9; }
-    </style>
+    <link rel="stylesheet" href="/static/styles/style.css">
 </head>
 <body>
-    <h1>CV Analyzer</h1>
-    <form id="upload-form" action="/process" method="POST" enctype="multipart/form-data">
-        <label for="cv_file">Upload CV:</label><br>
-        <input type="file" id="cv_file" name="cv_file" accept=".pdf,.doc,.docx,.txt" required><br><br>
-        <label for="job_text">Job Description:</label><br>
-        <textarea id="job_text" name="job_text" required></textarea><br><br>
-        <button type="submit">Analyze</button>
-    </form>
-    {% if result %}
-        <div class="result">
-            <h2>Result</h2>
-            {% if result.error %}
-                <p style="color: red;">Error: {{ result.error }}</p>
-            {% else %}
-                <pre>{{ result | tojson(indent=2) }}</pre>
-            {% endif %}
-        </div>
-    {% endif %}
+    <header>
+        <h1>CV Analyzer</h1>
+    </header>
+    <main>
+        <form id="upload-form" action="/process" method="POST" enctype="multipart/form-data">
+            <label for="cv_file">Upload CV:</label>
+            <input type="file" id="cv_file" name="cv_file" accept=".pdf,.doc,.docx,.txt" required>
+
+            <label for="job_text">Job Description:</label>
+            <textarea id="job_text" name="job_text" placeholder="Paste the job description here..." required></textarea>
+
+            <button type="submit">Analyze</button>
+        </form>
+
+        {% if result %}
+            <div class="result">
+                <h2>Result</h2>
+                {% if result.error %}
+                    <p class="error">Error: {{ result.error }}</p>
+                {% else %}
+                    <pre>{{ result | tojson(indent=2) }}</pre>
+                {% endif %}
+            </div>
+        {% endif %}
+    </main>
     <script>
         document.querySelector("form").addEventListener("submit", function(event) {
             console.log("Form submitted");

@@ -43,18 +43,11 @@ def process_form():
     """Handle POST requests to process the file upload and job description."""
     logging.debug("Entering /process route")
     logging.debug(f"request object: {request}")
-    logging.debug(f"request.form: {request.form}")
-    logging.debug(f"request.files: {request.files}")
-    logging.debug("/process route triggered")
     result = None
-    job_text = request.form.get('job_description', '')
-    cv_file = request.files.get('file')
-    logging.debug(f"Received job_text: {job_text}")
-
+    job_text = request.form.get('job_text')
+    cv_file = request.files.get('cv_file')
     if not job_text:
         logging.error("job_text is missing from the request")
-
-    logging.debug(f"cv_file received: {cv_file}")
     if not cv_file:
         logging.error("cv_file is missing from the request")
 
@@ -62,9 +55,7 @@ def process_form():
         filename = secure_filename(cv_file.filename)
         file_path = os.path.join('/tmp', filename)
         cv_file.save(file_path)
-
         logging.debug(f"File saved to {file_path}")
-        logging.debug(f"Job description: {job_text}")
 
         with open(file_path, "rb") as f:
             files = {"file": (filename, f, "application/octet-stream")}
@@ -78,7 +69,6 @@ def process_form():
 
                 if response.ok:
                     result = response.json()
-                    logging.debug(f"Response JSON: {result}")
                 else:
                     result = {"error": "Backend error: " + response.text}
             except Exception as e:
@@ -88,7 +78,6 @@ def process_form():
                 os.remove(file_path)
                 logging.debug(f"Temporary file {file_path} removed")
 
-    logging.debug(f"Result before rendering: {result}")
     logging.debug("Exiting /process route")
     return render_template('result.html', result=result)
 

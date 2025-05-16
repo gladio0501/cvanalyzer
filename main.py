@@ -14,7 +14,7 @@ if not os.path.exists("logs"):
 
 # Configure logging to save logs in the logs folder
 logging.basicConfig(
-    level=logging.WARNING,
+    level=logging.DEBUG,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
         logging.FileHandler("logs/backend.log"),
@@ -54,15 +54,9 @@ async def analyze_cv(file: UploadFile = File(...), job_description: str = ""):
     # Match skills and generate feedback
     matched = list(set(cv_skills) & set(job_skills))
     missing = list(set(job_skills) - set(cv_skills))
-    feedback = generate_feedback(matched, missing)
+    feedback = generate_feedback(matched, missing, file_path)
     logging.debug("Feedback generation completed")
-    logging.debug(f"Matched skills: {matched}")
-    logging.debug(f"Missing skills: {missing}")
-    logging.debug(f"Feedback: {feedback}")
 
-    # Clean up
-    os.remove(file_path)
-    logging.debug(f"Temporary file {file_path} removed")
 
     return {
         "matched_skills": matched,

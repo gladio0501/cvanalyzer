@@ -16,7 +16,7 @@ llm = ChatOpenAI(
 
 # Prompt template
 prompt_template = PromptTemplate.from_template(
-    "You are an expert in analyzing CVs. Extract a list of relevant skills from the following text. "
+    "You are an expert in analyzing CVs. Extract a list of relevant skills from the following text in 100 characters or less. "
     "Ensure the skills are specific, relevant, and include any implied skills that make sense for the context.\n"
     "Text: {text}\n"
     "Skills (comma-separated):"
