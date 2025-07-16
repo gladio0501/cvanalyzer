@@ -61,7 +61,8 @@ Pipfile.lock
 
 # dotenv
 .env
-
+#Jetbrains IDEs
+.idea
 # mypy
 .mypy_cache/
 .dmypy.json
