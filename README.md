@@ -261,31 +261,4 @@ export LANGSMITH_TRACING=true
 export DEBUG=true
 ```
 
-## 📝 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open Pull Request
-
-## 📞 Support
-
-For support and questions:
-- Create an issue on GitHub
-- Contact: cvanalyzer@example.com
-
-## 🙏 Acknowledgments
-
-- OpenAI for LLM and embedding services
-- LangChain for RAG pipeline framework
-- LangSmith for monitoring and tracing
-- FAISS for efficient vector search
-
----
-
-**CV Analyzer Team** - Building the future of resume analysis with AI
