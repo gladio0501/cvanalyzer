@@ -1,3 +1,39 @@
+"""
+CV Analyzer Flask Web Application
+
+This module implements the web-based frontend for the CV Analyzer system using Flask.
+It provides a user-friendly web interface for uploading CV documents and entering
+job descriptions, then displays comprehensive analysis results.
+
+Key Features:
+- Web-based user interface with HTML templates
+- File upload handling with security validation
+- Integration with FastAPI backend for analysis
+- Responsive design for various screen sizes
+- Comprehensive logging and error handling
+- Configuration-based backend URL management
+
+Architecture:
+1. Frontend (Flask): Handles web interface and user interactions
+2. Backend Integration: Communicates with FastAPI service for analysis
+3. File Management: Secure file upload and temporary storage
+4. Result Display: Formatted presentation of analysis results
+
+Routes:
+- GET /: Main upload page
+- GET /result: Results display page  
+- POST /process: Form processing and analysis trigger
+
+Dependencies:
+- flask: Web framework for frontend interface
+- requests: HTTP client for backend communication
+- werkzeug: File upload security utilities
+- config: Configuration management
+
+Author: CV Analyzer Team
+Version: 1.0
+"""
+
 from flask import Flask, render_template, request
 import requests
 import os
@@ -34,17 +70,80 @@ logging.basicConfig(
 
 @app.route('/', methods=['GET'])
 def get_index():
-    """Handle GET requests to render the index page."""
+    """
+    Render the main upload page for CV analysis.
+    
+    This route handles GET requests to display the main interface where
+    users can upload their CV files and enter job descriptions.
+    
+    Returns:
+        str: Rendered HTML template for the index page
+        
+    Note:
+        - Displays clean form without any previous results
+        - Provides file upload and text input components
+        - Includes client-side validation for better UX
+    """
     return render_template('index.html', result=None)
 
 @app.route('/result', methods=['GET'])
 def result_page():
-    """Render the result page."""
+    """
+    Render the results display page.
+    
+    This route provides a dedicated page for displaying analysis results
+    with clean formatting and structured presentation.
+    
+    Returns:
+        str: Rendered HTML template for the result page
+        
+    Note:
+        - Used for displaying comprehensive analysis results
+        - Includes charts and formatted feedback sections
+        - Provides navigation back to main upload page
+    """
     return render_template('result.html', result=None)
 
 @app.route('/process', methods=['POST'])
 def process_form():
-    """Handle POST requests to process the file upload and job description."""
+    """
+    Process CV upload and job description form submission.
+    
+    This route handles the main form processing logic, including file upload
+    validation, backend API communication, and result presentation. It coordinates
+    the entire analysis workflow from user input to result display.
+    
+    Returns:
+        str: Rendered HTML template with analysis results or error messages
+        
+    Form Data Expected:
+        - job_text (str): Job description text from textarea
+        - cv_file (FileStorage): Uploaded CV file (PDF/DOCX)
+        
+    Response Scenarios:
+        1. Success: Displays comprehensive analysis results
+        2. Validation Error: Shows error message for missing/invalid inputs
+        3. Backend Error: Displays API communication or processing errors
+        
+    Example Flow:
+        1. User uploads CV and enters job description
+        2. Form data is validated and sanitized
+        3. File is securely saved to temporary storage
+        4. Backend API is called for analysis
+        5. Results are formatted and displayed
+        
+    Error Handling:
+        - Missing job description: User-friendly error message
+        - Missing CV file: File upload validation error
+        - Invalid file format: Backend format validation
+        - API communication: Network/service error handling
+        
+    Note:
+        - Uses secure_filename for upload security
+        - Implements comprehensive logging for debugging
+        - Handles both validation and processing errors gracefully
+        - Temporary files are cleaned up after processing
+    """
     logging.debug("Entering /process route")
     logging.debug(f"request object: {request}")
     result = None
@@ -61,6 +160,12 @@ def process_form():
         result = {"error": "CV file is missing. Please upload a valid CV file."}
         return render_template('result.html', result=result)
 
+    # Handle potential None filename
+    if not cv_file.filename:
+        logging.error("cv_file has no filename")
+        result = {"error": "Invalid file upload. Please select a valid CV file."}
+        return render_template('result.html', result=result)
+        
     filename = secure_filename(cv_file.filename)
     file_path = os.path.join('/tmp', filename)
     cv_file.save(file_path)

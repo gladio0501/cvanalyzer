@@ -1,9 +1,42 @@
+"""
+Skill Extraction and Scoring Module for CV Analyzer
+
+This module implements a sophisticated RAG (Retrieval Augmented Generation) pipeline 
+for extracting and scoring skills from CVs against job descriptions. It combines 
+multiple AI techniques including vector search, LLM-based analysis, and external 
+LoRA model integration.
+
+Key Features:
+- RAG pipeline with FAISS vector store for skill matching
+- Hybrid skill extraction (LLM + keyword-based fallback)
+- Knowledge base filtering and normalization
+- LoRA model integration for semantic similarity scoring
+- LangSmith tracing for comprehensive monitoring
+- Robust error handling and input validation
+
+Architecture:
+1. Skills Knowledge Base: JSON-based structured skill definitions
+2. Vector Store: FAISS index with OpenAI embeddings for semantic search
+3. LLM Chain: GPT-4 based skill extraction and scoring
+4. LoRA Integration: External API for neural similarity scoring
+
+Dependencies:
+- langchain_openai: For ChatOpenAI and OpenAI embeddings
+- langchain_community: For FAISS vector store
+- langsmith: For tracing and monitoring
+- pydantic: For data validation and structured outputs
+
+Author: CV Analyzer Team
+Version: 2.0
+"""
+
 import json
 import re
 import os
 from langsmith import Client
 from langchain_core.tracers import LangChainTracer
 from config import load_config
+from langchain_integration import ResumeJobMatcherTool
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
@@ -14,12 +47,18 @@ from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
 from langchain_core.runnables import RunnablePassthrough, RunnableLambda
 
-# Load OpenAI key from .env
+
+# Load config and API keys
+
 config = load_config(".env")
-LANGSMITH_API_KEY = os.getenv("LANGSMITH_API_KEY")
-LANGSMITH_ENDPOINT = os.getenv("LANGSMITH_ENDPOINT")
-LANGSMITH_PROJECT = os.getenv("LANGSMITH_PROJECT")
-LANGSMITH_TRACING = os.getenv("LANGSMITH_TRACING", "false").lower() == "true"
+LANGSMITH_API_KEY = config.langsmith_api_key
+LANGSMITH_ENDPOINT = config.langsmith_endpoint
+LANGSMITH_PROJECT = config.langsmith_project
+LANGSMITH_TRACING = config.langsmith_tracing
+
+# Add ResumeJobMatcherTool config values (always from config)
+LORA_MATCHER_API_URL = config.lora_matcher_api_url
+LORA_MATCHER_API_KEY = config.lora_matcher_api_key
 
 if LANGSMITH_API_KEY:
     os.environ["LANGCHAIN_TRACING"] = "true" if LANGSMITH_TRACING else "false"
@@ -34,6 +73,7 @@ else:
     tracer = None
     client = None
 
+
 # Initialize LLM and Embeddings
 # See: https://python.langchain.com/docs/integrations/llms/openai
 llm = ChatOpenAI(
@@ -45,6 +85,16 @@ embeddings = OpenAIEmbeddings(
     model="text-embedding-3-small",
     api_key=config.openai_api_key
 )
+
+# Initialize ResumeJobMatcherTool (LoRA matcher)
+if LORA_MATCHER_API_URL and LORA_MATCHER_API_KEY:
+    matcher = ResumeJobMatcherTool(
+        api_url=LORA_MATCHER_API_URL,
+        api_key=LORA_MATCHER_API_KEY
+    )
+else:
+    matcher = None
+    print("[LoRA Matcher] WARNING: API URL or API key not configured. LoRA matching will be disabled.")
 
 # --- RAG Pipeline Setup ---
 
@@ -80,6 +130,17 @@ retriever = vector_store.as_retriever()
 # --- AI-Powered Scoring with RAG ---
 
 class SkillComparison(BaseModel):
+    """
+    Pydantic model for structured skill comparison output.
+    
+    This model defines the expected output format for the RAG pipeline,
+    ensuring consistent and validated responses from the LLM.
+    
+    Attributes:
+        matched_skills (List[str]): Skills found in both CV and job description
+        missing_skills (List[str]): Skills mentioned in job description but missing from CV
+        score (int): Compatibility score from 0-100 based on skill matching ratio
+    """
     matched_skills: List[str] = Field(description="Skills present in both the CV and job description, based on the provided context")
     missing_skills: List[str] = Field(description="Skills from the context that are in the job description but not in the CV")
     score: int = Field(description="A score from 0 to 100 representing how well the CV matches the job description, based on the context")
@@ -95,9 +156,30 @@ scoring_prompt = PromptTemplate(
 
 def extract_skills_llm(cv_text: str, job_description: str) -> list:
     """
-    Uses the LLM to extract a clean, deduplicated list of skills mentioned in either the job description or CV,
-    but only allows skills present in the skills knowledge base.
-    Returns a list of normalized skill names.
+    Extract skills using LLM with knowledge base filtering and keyword fallback.
+    
+    This function uses a hybrid approach to skill extraction:
+    1. LLM-based extraction from CV and job description texts
+    2. Knowledge base filtering to ensure only valid skills are returned
+    3. Keyword-based fallback for skills missed by the LLM
+    4. Normalization and deduplication of results
+    
+    Args:
+        cv_text (str): The parsed text content of the CV/resume
+        job_description (str): The job description text to analyze
+        
+    Returns:
+        list: Sorted list of normalized skill names from the knowledge base
+        
+    Example:
+        >>> skills = extract_skills_llm("Python developer with Django", "Need Python and React skills")
+        >>> print(skills)
+        ['Django', 'Python', 'React']
+        
+    Note:
+        - Only returns skills present in the skills knowledge base
+        - Uses case-insensitive matching with word boundaries for multi-word skills
+        - Includes LangSmith tracing for monitoring extraction performance
     """
     kb_skill_names = [skill['skill'] for skill in skills_data]
     skill_extraction_prompt = PromptTemplate(
@@ -159,7 +241,52 @@ Skills (JSON array):''',
         return sorted(llm_skills_norm)
     return []
 
-# 6. Build the RAG Chain
+
+def get_lora_score(cv_text, job_description):
+    """
+    Get semantic similarity score from external LoRA model API.
+    
+    This function calls the external LoRA (Low-Rank Adaptation) model API
+    to get a neural network-based similarity score between CV and job description.
+    Includes comprehensive logging and error handling.
+    
+    Args:
+        cv_text (str): The parsed text content of the CV/resume
+        job_description (str): The job description text to compare against
+        
+    Returns:
+        dict: API response containing:
+            - match_score (float): Similarity score from the LoRA model
+            - confidence (str): Confidence level of the prediction
+            - status (str): Success/error/disabled status
+            - error_message (str, optional): Error details if call fails
+            
+    Example:
+        >>> result = get_lora_score("Python developer", "Need Python skills")
+        >>> print(result)
+        {'match_score': 0.85, 'confidence': 'High', 'status': 'success'}
+        
+    Note:
+        - Returns default values if matcher is not configured
+        - Includes detailed logging for debugging API calls
+        - Handles network timeouts and connection errors gracefully
+    """
+    if matcher is None:
+        print("[LoRA Matcher] WARNING: Matcher not configured, returning default score")
+        return {"match_score": 0, "status": "disabled", "error_message": "LoRA matcher not configured"}
+    
+    print(f"[LoRA Matcher] Making API call...")
+    print(f"[LoRA Matcher] CV text length: {len(cv_text)}")
+    print(f"[LoRA Matcher] Job description length: {len(job_description)}")
+    
+    try:
+        result = matcher.match_resume_job(cv_text=cv_text, job_description=job_description)
+        print(f"[LoRA Matcher] API call successful: {result}")
+        return result
+    except Exception as e:
+        print(f"[LoRA Matcher] ERROR: {e}")
+        return {"match_score": 0, "status": "error", "error_message": str(e)}
+
 rag_chain = (
     {
         "context": lambda x: retriever.invoke(', '.join(extract_skills_llm(x["cv_text"], x["job_description"]))),
@@ -173,9 +300,48 @@ rag_chain = (
 
 def extract_and_score_skills(cv_text: str, job_description: str):
     """
-    Uses a RAG pipeline to extract matched and missing skills, and provide a score.
-    The job_description is used to retrieve relevant skills from the knowledge base.
-    Returns an error dict if job_description is empty or only whitespace.
+    Main function to extract skills and generate comprehensive scoring using RAG pipeline.
+    
+    This is the primary entry point that orchestrates the entire skill analysis process:
+    1. Input validation and error handling
+    2. RAG-based skill extraction and matching
+    3. External LoRA model scoring
+    4. Score normalization and result combination
+    
+    The function combines two scoring mechanisms:
+    - Skills-based score: Traditional matching based on knowledge base
+    - LoRA score: Neural network-based semantic similarity
+    
+    Args:
+        cv_text (str): The parsed text content of the CV/resume
+        job_description (str): The job description text to analyze against
+        
+    Returns:
+        dict: Comprehensive analysis containing:
+            - matched_skills (list): Skills found in both CV and job description
+            - missing_skills (list): Skills in job description but missing from CV
+            - score (int): Skills-based compatibility score (0-100)
+            - lora_score (int): LoRA model similarity score (0-100)
+            - error (str, optional): Error message if processing fails
+            
+    Example:
+        >>> result = extract_and_score_skills("Python developer with Django", "Need Python, Django, React")
+        >>> print(result)
+        {
+            'matched_skills': ['Python', 'Django'],
+            'missing_skills': ['React'],
+            'score': 67,
+            'lora_score': 75
+        }
+        
+    Raises:
+        Exception: If critical errors occur in RAG pipeline or LoRA API calls
+        
+    Note:
+        - Validates inputs and returns structured error responses
+        - Includes comprehensive logging for debugging
+        - Converts LoRA scores from 0-1 range to 0-100 percentage
+        - Uses LangSmith tracing for monitoring pipeline performance
     """
     if not job_description or not job_description.strip():
         print("[RAG] ERROR: Job description is empty or missing.")
@@ -183,6 +349,7 @@ def extract_and_score_skills(cv_text: str, job_description: str):
             "matched_skills": [],
             "missing_skills": [],
             "score": 0,
+            "lora_score": 0,
             "error": "Job description is empty. Please provide a valid job description."
         }
     if not cv_text or not cv_text.strip():
@@ -191,8 +358,43 @@ def extract_and_score_skills(cv_text: str, job_description: str):
             "matched_skills": [],
             "missing_skills": [],
             "score": 0,
+            "lora_score": 0,
             "error": "CV text is empty. Please upload a valid CV file."
         }
     print(f"[RAG] job_description length: {len(job_description)}")
     print(f"[RAG] cv_text length: {len(cv_text)}")
-    return rag_chain.invoke({"cv_text": cv_text, "job_description": job_description}, run_name="RAG Scoring Chain")
+    
+    # Get the skills-based RAG result
+    rag_result = rag_chain.invoke({"cv_text": cv_text, "job_description": job_description}, run_name="RAG Scoring Chain")
+    
+    # Get the LoRA score separately
+    lora_result = get_lora_score(cv_text, job_description)
+    lora_score = lora_result.get("match_score", 0)
+    
+    print(f"[LoRA Matcher] Raw result: {lora_result}")
+    print(f"[LoRA Matcher] Raw match_score: {lora_score} (type: {type(lora_score)})")
+    
+    # Convert LoRA score from 0-1 range to 0-100 range if needed
+    if isinstance(lora_score, float) and 0 <= lora_score <= 1:
+        lora_score_converted = int(lora_score * 100)
+        print(f"[LoRA Matcher] Converted score from {lora_score} to {lora_score_converted} (0-1 to 0-100 range)")
+        lora_score = lora_score_converted
+    elif isinstance(lora_score, float):
+        lora_score_converted = int(lora_score)
+        print(f"[LoRA Matcher] Converted float score from {lora_score} to {lora_score_converted}")
+        lora_score = lora_score_converted
+    
+    print(f"[LoRA Matcher] Final lora_score: {lora_score}")
+    print(f"[LoRA Matcher] LoRA status: {lora_result.get('status', 'unknown')}")
+    if lora_result.get('confidence'):
+        print(f"[LoRA Matcher] LoRA confidence: {lora_result.get('confidence')}")
+    if lora_result.get('error_message'):
+        print(f"[LoRA Matcher] LoRA error: {lora_result.get('error_message')}")
+    
+    # Combine the results
+    final_result = {
+        **rag_result,
+        "lora_score": lora_score
+    }
+    
+    return final_result
