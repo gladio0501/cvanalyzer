@@ -25,9 +25,6 @@ Dependencies:
 - langchain_community: For FAISS vector store
 - langsmith: For tracing and monitoring
 - pydantic: For data validation and structured outputs
-
-Author: CV Analyzer Team
-Version: 2.0
 """
 
 import json
