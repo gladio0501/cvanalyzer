@@ -5,19 +5,25 @@ A sophisticated CV analysis system that combines multiple AI techniques includin
 ## 🚀 Features
 
 ### Core Capabilities
+
 - **Multi-format CV Parsing**: Supports PDF and DOCX document formats
 - **RAG-based Skill Extraction**: Uses FAISS vector store with OpenAI embeddings
 - **Dual Scoring System**: 
   - Skills-based matching using knowledge base
   - Neural similarity scoring via LoRA model integration
 - **AI-Powered Feedback**: Structured feedback generation using GPT-4
+- **Job Recommendations**: Match CV against real-time job listings from Jobicy RSS feed
 - **Web Interface**: User-friendly Flask frontend with FastAPI backend
 - **Comprehensive Monitoring**: LangSmith tracing integration
 
 ### Advanced Features
+
 - **Hybrid Skill Detection**: LLM + keyword-based fallback
 - **Knowledge Base Filtering**: Curated skills database with normalization
 - **External API Integration**: LoRA model for semantic similarity
+- **Parallel Processing**: Concurrent LoRA scoring for multiple jobs
+- **Lightweight CV Extraction**: Fast profile extraction for job matching
+- **Region-based Filtering**: Filter jobs by location (Remote, USA, Europe, etc.)
 - **Robust Error Handling**: Comprehensive validation and logging
 - **Type-Safe Configuration**: Pydantic-based settings management
 
@@ -107,13 +113,36 @@ python app.py
 
 3. **Access the Web Interface**
 - Open browser to `http://localhost:5000`
-- Upload CV file (PDF/DOCX)
-- Enter job description
-- Get comprehensive analysis results
+- Choose between two features:
+  - **CV Analysis**: Compare CV against a specific job description
+  - **Job Recommendations**: Find matching jobs from current listings
+
+### Web Interface Usage
+
+#### CV Analysis (Traditional Mode)
+1. Upload CV file (PDF/DOCX)
+2. Enter job description
+3. Get comprehensive analysis with:
+   - Matched and missing skills
+   - Skills-based score
+   - LoRA semantic similarity score
+   - Detailed AI feedback
+
+#### Job Recommendations (New Feature)
+1. Navigate to "Job Recommendations" from the homepage
+2. Upload your CV (PDF/DOCX)
+3. Select target region (Remote, USA, Europe, Asia, etc.)
+4. Choose number of top jobs to display (default: 10)
+5. Get ranked job matches with:
+   - Match score (combined LoRA + profile scoring)
+   - Match reasons (why the job fits)
+   - Job details (title, company, location, tags)
+   - Direct application links
 
 ### API Usage
 
 #### Analyze CV Endpoint
+
 ```bash
 curl -X POST "http://localhost:8000/analyze_cv" \
   -H "Content-Type: multipart/form-data" \
@@ -121,7 +150,25 @@ curl -X POST "http://localhost:8000/analyze_cv" \
   -F "job_description=Looking for Python developer with web frameworks"
 ```
 
-#### Response Format
+#### Job Recommendations Endpoint
+
+```bash
+curl -X POST "http://localhost:8000/recommend_jobs" \
+  -H "Content-Type: multipart/form-data" \
+  -F "file=@resume.pdf" \
+  -F "region=Remote" \
+  -F "top_k=10"
+```
+
+**Parameters:**
+- `file`: CV file (PDF/DOCX)
+- `region`: Target job location (optional, e.g., "Remote", "USA", "Europe")
+- `top_k`: Number of top jobs to return (default: 10)
+
+#### Response Formats
+
+**CV Analysis Response:**
+
 ```json
 {
   "matched_skills": ["Python", "Django", "FastAPI"],
@@ -133,6 +180,27 @@ curl -X POST "http://localhost:8000/analyze_cv" \
     "positive_feedback": "Strong Python and web development experience...",
     "negative_feedback": "Consider adding containerization skills..."
   }
+}
+```
+
+**Job Recommendations Response:**
+
+```json
+{
+  "jobs": [
+    {
+      "title": "Senior Python Developer",
+      "company": "Tech Corp",
+      "location": "Remote",
+      "match_score": 0.87,
+      "match_reason": "Strong match: 5+ years Python, FastAPI experience, remote work",
+      "description": "Looking for experienced Python developer...",
+      "tags": ["Python", "FastAPI", "Docker", "AWS"],
+      "url": "https://jobicy.com/job/12345"
+    }
+  ],
+  "total_jobs_analyzed": 150,
+  "region_filter": "Remote"
 }
 ```
 

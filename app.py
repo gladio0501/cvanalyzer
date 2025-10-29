@@ -34,7 +34,7 @@ Author: CV Analyzer Team
 Version: 1.0
 """
 
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, redirect, url_for
 import requests
 import os
 from werkzeug.utils import secure_filename
@@ -103,6 +103,43 @@ def result_page():
         - Provides navigation back to main upload page
     """
     return render_template('result.html', result=None)
+
+
+@app.route('/jobs', methods=['GET'])
+def jobs_page():
+    """
+    Render the job recommendations page.
+    
+    This route displays the interface for users to upload their CV
+    and get personalized job recommendations from multiple listings.
+    
+    Returns:
+        str: Rendered HTML template for the job recommendations page
+        
+    Note:
+        - Allows CV upload and region selection
+        - Fetches jobs from RSS feed
+        - Uses lightweight matching for speed
+    """
+    return render_template('jobs.html')
+
+
+@app.route('/jobs/results', methods=['GET'])
+def jobs_results_page():
+    """
+    Render the job recommendations results page.
+    
+    This route is only accessible via direct navigation (not after form submission).
+    Redirects to the jobs page if accessed without results.
+    
+    Returns:
+        Redirect: Redirects to the jobs upload page
+        
+    Note:
+        - Results are only displayed after POST to /jobs/process
+        - This prevents users from seeing empty results page
+    """
+    return redirect(url_for('jobs_page'))
 
 @app.route('/process', methods=['POST'])
 def process_form():
@@ -194,6 +231,84 @@ def process_form():
 
     logging.debug("Exiting /process route")
     return render_template('result.html', result=result)
+
+
+@app.route('/jobs/process', methods=['POST'])
+def process_jobs():
+    """
+    Process CV upload for job recommendations.
+    
+    This route handles the job recommendation workflow:
+    1. Receives CV upload, job source, and preferences
+    2. Calls backend /recommend_jobs endpoint
+    3. Displays ranked job matches
+    
+    Returns:
+        str: Rendered HTML template with job recommendations
+        
+    Form Data Expected:
+        - cv_file (FileStorage): Uploaded CV file
+        - job_source (str): "jobicy" or "jobspy"
+        - region (str, optional): Filter by region (e.g., "Remote", "USA")
+        - job_title (str, optional): Job title to search (for JobSpy)
+        - top_k (int, optional): Number of recommendations (default: 10)
+        - jobspy_sites (str, optional): Comma-separated sites for JobSpy
+    """
+    logging.debug("Entering /jobs/process route")
+    
+    cv_file = request.files.get('cv_file')
+    job_source = request.form.get('job_source', 'jobicy')
+    region = request.form.get('region', '').strip() or None
+    job_title = request.form.get('job_title', '').strip() or None
+    top_k = int(request.form.get('top_k', 10))
+    jobspy_sites = request.form.get('jobspy_sites', '').strip() or None
+    
+    logging.debug(f"Received: job_source={job_source}, region={region}, job_title={job_title}, top_k={top_k}, jobspy_sites={jobspy_sites}")
+    
+    if not cv_file or not cv_file.filename:
+        logging.error("cv_file is missing")
+        results = {"error": "CV file is missing. Please upload a valid CV file."}
+        return render_template('jobs_results.html', results=results)
+    
+    filename = secure_filename(cv_file.filename)
+    file_path = os.path.join('/tmp', filename)
+    cv_file.save(file_path)
+    logging.debug(f"File saved to {file_path}")
+    
+    try:
+        with open(file_path, "rb") as f:
+            files = {"file": (filename, f, "application/octet-stream")}
+            data = {
+                "job_source": job_source,
+                "region": region if region else "",
+                "job_title": job_title if job_title else "",
+                "top_k": str(top_k),
+                "jobspy_sites": jobspy_sites if jobspy_sites else ""
+            }
+            
+            # Call backend recommend_jobs endpoint
+            backend_url = config.api_url.replace('/analyze_cv', '/recommend_jobs')
+            logging.debug(f"Sending POST request to {backend_url}")
+            
+            response = requests.post(backend_url, files=files, data=data, timeout=120)  # Increased timeout for JobSpy
+            logging.debug(f"Response status code: {response.status_code}")
+            
+            if response.ok:
+                results = response.json()
+                logging.info(f"Got {len(results.get('recommendations', []))} job recommendations from {results.get('job_source_used', 'unknown')}")
+            else:
+                results = {"error": f"Backend error: {response.text}"}
+                
+    except Exception as e:
+        logging.error(f"Error during job recommendation request: {e}")
+        results = {"error": str(e)}
+    finally:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            logging.debug(f"Temporary file {file_path} removed")
+    
+    return render_template('jobs_results.html', results=results)
+
 
 if __name__ == '__main__':
     app.run(debug=True)

@@ -5,11 +5,77 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CV Analyzer</title>
     <link rel="stylesheet" href="/static/styles/style.css">
+    <style>
+        .feature-nav {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 10px;
+        }
+        
+        .feature-card {
+            flex: 1;
+            max-width: 350px;
+            padding: 20px;
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            text-align: center;
+            transition: all 0.3s;
+            text-decoration: none;
+            color: inherit;
+        }
+        
+        .feature-card:hover {
+            border-color: #3498db;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+        
+        .feature-icon {
+            font-size: 3em;
+            margin-bottom: 10px;
+        }
+        
+        .feature-card h3 {
+            margin: 10px 0;
+            color: #2c3e50;
+        }
+        
+        .feature-card p {
+            color: #7f8c8d;
+            font-size: 0.95em;
+        }
+        
+        .active-feature {
+            border-color: #3498db;
+            background-color: #ecf0f1;
+        }
+    </style>
 </head>
 <body>
     <header>
         <h1>CV Analyzer</h1>
+        <p style="text-align: center; color: #7f8c8d;">AI-Powered Resume Analysis & Job Matching</p>
     </header>
+    
+    <div class="feature-nav">
+        <div class="feature-card active-feature">
+            <div class="feature-icon">📊</div>
+            <h3>CV Analysis</h3>
+            <p>Compare your CV against specific job descriptions</p>
+        </div>
+        
+        <a href="{{ url_for('jobs_page') }}" class="feature-card">
+            <div class="feature-icon">🎯</div>
+            <h3>Job Recommendations</h3>
+            <p>Find matching jobs from current listings</p>
+        </a>
+    </div>
+    
     <main>
         <form id="upload-form" action="/process" method="POST" enctype="multipart/form-data">
             <label for="cv_file">Upload CV:</label>

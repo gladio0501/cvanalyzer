@@ -34,14 +34,22 @@ Dependencies:
 """
 
 # main.py
-from fastapi import FastAPI, UploadFile, File, Form
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from tools.cv_parser import parse_cv
 from tools.skill_extractor import extract_and_score_skills
 from tools.feedback_generator import generate_feedback
+from tools.job_recommendation_chain import get_job_recommendations, JobMatch
+from tools.job_sources import JobSource, get_available_job_sources
+from config import load_config
 import os
 import logging
 from fastapi.requests import Request
+from typing import Optional
+
+# Load configuration and set environment variables
+config = load_config()
+os.environ["OPENAI_API_KEY"] = config.openai_api_key.get_secret_value()
 
 # Ensure the logs directory exists
 if not os.path.exists("logs"):
@@ -193,4 +201,187 @@ async def analyze_cv(
         "feedback": feedback,
         "score": analysis['score'],
         "lora_score": analysis.get('lora_score', 0)
+    }
+
+
+@app.post("/recommend_jobs")
+async def recommend_jobs(
+    file: UploadFile = File(...),
+    region: Optional[str] = Form(None),
+    job_title: Optional[str] = Form(None),
+    top_k: int = Form(10),
+    job_source: str = Form("jobicy"),
+    jobspy_sites: Optional[str] = Form(None)
+):
+    """
+    Get job recommendations by matching CV against multiple job listings.
+    
+    This endpoint fetches job listings from selected source (Jobicy API or JobSpy scraper)
+    and matches them against the uploaded CV using lightweight profile extraction and
+    LoRA semantic matching for efficient, accurate recommendations.
+    
+    Args:
+        file (UploadFile): The CV file to analyze (PDF, DOC, DOCX formats supported)
+        region (Optional[str]): Filter jobs by region (e.g., "Remote", "USA", "Europe")
+        job_title (Optional[str]): Job title to search for (primarily for JobSpy)
+        top_k (int): Number of top matching jobs to return (default: 10, max: 50)
+        job_source (str): Job source to use: "jobicy" or "jobspy" (default: "jobicy")
+        jobspy_sites (Optional[str]): Comma-separated sites for JobSpy: "indeed,linkedin,zip_recruiter,glassdoor"
+        
+    Returns:
+        dict: Job recommendations containing:
+            - recommendations (list): Top matching jobs with:
+                - job_id: Unique job identifier
+                - job_title: Job title/position
+                - company: Company name
+                - location: Job location
+                - match_score: Overall match score (0-100)
+                - lora_score: LoRA semantic similarity score
+                - profile_score: Profile-based match score
+                - match_reasons: List of reasons why this job matches
+                - job_url: Link to full job posting
+                - job_type: Full-time, Contract, etc.
+            - total_jobs_analyzed: Total jobs analyzed
+            - region_filter: Region filter applied (if any)
+            - job_source_used: Which job source was used
+            - error (str, optional): Error message if processing fails
+            
+    Example Response:
+        {
+            "recommendations": [
+                {
+                    "job_title": "Senior Python Developer",
+                    "company": "Tech Corp",
+                    "location": "Remote",
+                    "match_score": 87.5,
+                    "lora_score": 85.2,
+                    "profile_score": 91.3,
+                    "match_reasons": [
+                        "Strong skills alignment (91%)",
+                        "High semantic similarity (85%)",
+                        "Similar role to your Python Developer experience"
+                    ],
+                    "job_url": "https://...",
+                    "job_type": "Full-time"
+                },
+                ...
+            ],
+            "total_jobs_analyzed": 50,
+            "region_filter": "Remote",
+            "job_source_used": "jobicy"
+        }
+        
+    HTTP Status Codes:
+        200: Successful recommendation
+        400: Invalid input (missing file or invalid job source)
+        422: File parsing error or invalid format
+        500: Internal server error
+        
+    Note:
+        - Jobicy: Fast API, remote jobs only
+        - JobSpy: Scrapes Indeed, LinkedIn, ZipRecruiter, Glassdoor
+        - Uses lightweight profile extraction for speed
+        - Parallel LoRA scoring for efficiency
+        - Maximum 50 jobs fetched per request
+    """
+    logging.info(f"Received request to /recommend_jobs with region={region}, job_source={job_source}, top_k={top_k}")
+    
+    try:
+        # Validate job source
+        try:
+            source_enum = JobSource(job_source.lower())
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid job source: {job_source}. Must be 'jobicy' or 'jobspy'"
+            )
+        
+        # Parse jobspy_sites if provided
+        sites_list = None
+        if jobspy_sites and job_source.lower() == "jobspy":
+            sites_list = [site.strip() for site in jobspy_sites.split(",") if site.strip()]
+            logging.info(f"JobSpy sites: {sites_list}")
+        
+        # Save the uploaded file
+        file_path = f"/tmp/{file.filename}"
+        with open(file_path, "wb") as f:
+            f.write(await file.read())
+        logging.debug(f"File saved to {file_path}")
+        
+        # Parse the CV
+        cv_text = parse_cv(file_path)
+        logging.debug(f"CV parsing completed. Length: {len(cv_text) if cv_text else 0}")
+        
+        if not cv_text or not cv_text.strip():
+            logging.error("CV text is missing or empty")
+            raise HTTPException(
+                status_code=400,
+                detail="CV text is missing or empty. Please upload a valid CV file."
+            )
+        
+        # Load configuration for LoRA
+        config = load_config()
+        
+        # Get job recommendations
+        logging.info(f"Getting job recommendations from {source_enum.value}...")
+        matches = get_job_recommendations(
+            cv_text=cv_text,
+            region=region,
+            job_title=job_title,
+            top_k=min(top_k, 50),  # Cap at 50
+            lora_api_url=config.lora_matcher_api_url,
+            lora_api_key=config.lora_matcher_api_key,
+            job_source=source_enum,
+            jobspy_sites=sites_list
+        )
+        
+        logging.info(f"Found {len(matches)} job matches")
+        
+        # Convert matches to dict format
+        recommendations = [
+            {
+                "job_id": match.job_id,
+                "job_title": match.job_title,
+                "company": match.company,
+                "location": match.location,
+                "match_score": match.match_score,
+                "lora_score": match.lora_score,
+                "profile_score": match.profile_score,
+                "match_reasons": match.match_reasons,
+                "job_url": match.job_url,
+                "job_type": match.job_type
+            }
+            for match in matches
+        ]
+        
+        return {
+            "recommendations": recommendations,
+            "total_jobs_analyzed": len(recommendations),
+            "region_filter": region if region else "All regions",
+            "job_source_used": source_enum.value
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error in job recommendation: {e}", exc_info=True)
+        return {
+            "recommendations": [],
+            "total_jobs_analyzed": 0,
+            "region_filter": region if region else "All regions",
+            "job_source_used": job_source,
+            "error": str(e)
+        }
+
+
+@app.get("/job_sources")
+async def list_job_sources():
+    """
+    Get list of available job sources.
+    
+    Returns:
+        dict: Available job sources with descriptions
+    """
+    return {
+        "sources": get_available_job_sources()
     }

@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Job Recommendations - CV Analyzer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/style.css') }}">
+    <style>
+        .jobs-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .jobs-header h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        
+        .jobs-header p {
+            color: #7f8c8d;
+            font-size: 1.1em;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #2c3e50;
+        }
+        
+        .form-group input[type="file"],
+        .form-group select,
+        .form-group input[type="number"] {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+        }
+        
+        .info-box {
+            background-color: #ecf0f1;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .info-box h3 {
+            margin-top: 0;
+            color: #2c3e50;
+            font-size: 1.1em;
+        }
+        
+        .info-box ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        
+        .info-box li {
+            margin: 5px 0;
+            color: #555;
+        }
+        
+        .nav-links {
+            text-align: center;
+            margin-top: 20px;
+        }
+        
+        .nav-links a {
+            color: #3498db;
+            text-decoration: none;
+            margin: 0 15px;
+        }
+        
+        .nav-links a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="jobs-header">
+            <h1>🎯 Job Recommendations</h1>
+            <p>Upload your CV and discover the best matching jobs for you</p>
+        </div>
+        
+        <div class="info-box">
+            <h3>📋 How it works:</h3>
+            <ul>
+                <li>Upload your CV in PDF or DOCX format</li>
+                <li>Choose job source: <strong>Jobicy API</strong> (fast, remote jobs) or <strong>JobSpy</strong> (scrapes Indeed, LinkedIn, etc.)</li>
+                <li>Optionally filter by region and job title</li>
+                <li>We'll analyze your profile and match it against current job listings</li>
+                <li>Get personalized recommendations with match scores and reasons</li>
+            </ul>
+        </div>
+        
+        <form action="{{ url_for('process_jobs') }}" method="POST" enctype="multipart/form-data" id="jobsForm">
+            <div class="form-group">
+                <label for="cv_file">📄 Upload Your CV *</label>
+                <input type="file" id="cv_file" name="cv_file" accept=".pdf,.doc,.docx" required>
+                <small style="color: #7f8c8d;">Accepted formats: PDF, DOC, DOCX (Max 16MB)</small>
+            </div>
+            
+            <div class="form-group">
+                <label for="job_source">🔧 Job Source *</label>
+                <select id="job_source" name="job_source" onchange="toggleJobSourceOptions()">
+                    <option value="jobicy">Jobicy API (Fast, Remote Jobs)</option>
+                    <option value="jobspy">JobSpy Scraper (Indeed, LinkedIn, ZipRecruiter, Glassdoor)</option>
+                </select>
+                <small style="color: #7f8c8d;">
+                    <span id="source-description">Jobicy: Fast API with curated remote job listings</span>
+                </small>
+            </div>
+            
+            <!-- JobSpy specific options -->
+            <div id="jobspy-options" style="display: none;">
+                <div class="form-group">
+                    <label for="job_title">💼 Job Title to Search (Optional)</label>
+                    <input type="text" id="job_title" name="job_title" placeholder="e.g., Python Developer, Data Scientist">
+                    <small style="color: #7f8c8d;">Leave blank to search all software jobs</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="jobspy_sites">🌐 Sites to Scrape (Optional)</label>
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 10px;">
+                        <label style="display: flex; align-items: center; font-weight: normal;">
+                            <input type="checkbox" name="site" value="indeed" checked style="width: auto; margin-right: 8px;"> Indeed
+                        </label>
+                        <label style="display: flex; align-items: center; font-weight: normal;">
+                            <input type="checkbox" name="site" value="linkedin" checked style="width: auto; margin-right: 8px;"> LinkedIn
+                        </label>
+                        <label style="display: flex; align-items: center; font-weight: normal;">
+                            <input type="checkbox" name="site" value="zip_recruiter" style="width: auto; margin-right: 8px;"> ZipRecruiter
+                        </label>
+                        <label style="display: flex; align-items: center; font-weight: normal;">
+                            <input type="checkbox" name="site" value="glassdoor" style="width: auto; margin-right: 8px;"> Glassdoor
+                        </label>
+                    </div>
+                    <input type="hidden" id="jobspy_sites" name="jobspy_sites">
+                    <small style="color: #7f8c8d;">Select which job sites to scrape (more sites = slower but more results)</small>
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="region">🌍 Region Preference (Optional)</label>
+                    <select id="region" name="region">
+                        <option value="">All Regions</option>
+                        <option value="Remote">Remote</option>
+                        <option value="USA">United States</option>
+                        <option value="Europe">Europe</option>
+                        <option value="Asia">Asia</option>
+                        <option value="UK">United Kingdom</option>
+                        <option value="Canada">Canada</option>
+                        <option value="Australia">Australia</option>
+                        <option value="Worldwide">Worldwide</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="top_k">📊 Number of Results</label>
+                    <input type="number" id="top_k" name="top_k" value="10" min="5" max="50">
+                    <small style="color: #7f8c8d;">5-50 jobs</small>
+                </div>
+            </div>
+            
+            <button type="submit" class="submit-button">
+                🔍 Find Matching Jobs
+            </button>
+        </form>
+        
+        <div class="nav-links">
+            <a href="{{ url_for('get_index') }}">← Back to CV Analysis</a>
+            <span style="color: #ccc;">|</span>
+            <a href="/">Home</a>
+        </div>
+    </div>
+    
+    <script>
+        function toggleJobSourceOptions() {
+            const jobSource = document.getElementById('job_source').value;
+            const jobspyOptions = document.getElementById('jobspy-options');
+            const sourceDescription = document.getElementById('source-description');
+            
+            if (jobSource === 'jobspy') {
+                jobspyOptions.style.display = 'block';
+                sourceDescription.textContent = 'JobSpy: Scrapes live jobs from multiple sources (slower but more comprehensive)';
+            } else {
+                jobspyOptions.style.display = 'none';
+                sourceDescription.textContent = 'Jobicy: Fast API with curated remote job listings';
+            }
+        }
+        
+        document.getElementById('jobsForm').addEventListener('submit', function(e) {
+            const fileInput = document.getElementById('cv_file');
+            const submitButton = document.querySelector('.submit-button');
+            
+            if (!fileInput.files.length) {
+                e.preventDefault();
+                alert('Please select a CV file to upload.');
+                return;
+            }
+            
+            // Collect selected sites for JobSpy
+            if (document.getElementById('job_source').value === 'jobspy') {
+                const selectedSites = Array.from(document.querySelectorAll('input[name="site"]:checked'))
+                    .map(cb => cb.value);
+                document.getElementById('jobspy_sites').value = selectedSites.join(',');
+                
+                if (selectedSites.length === 0) {
+                    e.preventDefault();
+                    alert('Please select at least one job site to scrape.');
+                    return;
+                }
+            }
+            
+            // Show loading state
+            submitButton.disabled = true;
+            const jobSource = document.getElementById('job_source').value;
+            const loadingText = jobSource === 'jobspy' 
+                ? '⏳ Scraping jobs... This may take 1-2 minutes'
+                : '⏳ Analyzing... This may take a minute';
+            submitButton.innerHTML = loadingText;
+            submitButton.style.backgroundColor = '#95a5a6';
+        });
+        
+        // File size validation
+        document.getElementById('cv_file').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file && file.size > 16 * 1024 * 1024) {
+                alert('File size must be less than 16MB');
+                e.target.value = '';
+            }
+        });
+    </script>
+</body>
+</html>
