@@ -1,31 +1,5 @@
 """
-LangChain Integration Module for Resume-Job Matcher LoRA Model
-
-This module provides a LangChain-compatible tool for integrating with external
-LoRA (Low-Rank Adaptation) models for resume-job matching. It implements the
-BaseTool interface to enable seamless integration with LangChain agents and chains.
-
-Key Features:
-- LangChain BaseTool implementation for agent compatibility
-- HTTP API integration with authentication
-- Robust error handling and timeout management
-- Flexible input format support (JSON string or dictionary)
-- Comprehensive response validation and normalization
-- Batch processing for multiple job descriptions
-- Enhanced error messages and confidence reporting
-
-Architecture:
-- Inherits from LangChain's BaseTool for agent integration
-- Makes HTTP POST requests to external LoRA model APIs
-- Handles authentication via Bearer token authorization
-- Provides structured response format for consistent integration
-- Supports both single and batch matching operations
-
-Dependencies:
-- langchain_core: For BaseTool interface and tool framework
-- requests: For HTTP API communication
-- pydantic: For input validation and type safety
-
+LangChain Integration Module for Resume-Job Matcher LoRA Model.
 """
 
 import requests
@@ -42,13 +16,6 @@ ArgsSchema = Optional[Type[BaseModel]]
 class ResumeJobMatcherInput(BaseModel):
     """
     Input schema for ResumeJobMatcherTool validation.
-    
-    This Pydantic model defines the expected input format for the LoRA
-    matcher tool, ensuring proper validation of CV text and job descriptions.
-    
-    Attributes:
-        resume_text (str): The text content of the resume/CV to analyze
-        job_description (str): The job description text to match against
     """
     resume_text: str = Field(description="The resume text to analyze")
     job_description: str = Field(description="The job description to match against")
@@ -63,36 +30,6 @@ class BatchResumeJobMatchInput(BaseModel):
 class ResumeJobMatcherTool(BaseTool):
     """
     LangChain tool for matching resumes to job descriptions using LoRA models.
-    
-    This tool integrates with external LoRA (Low-Rank Adaptation) model APIs
-    to provide neural network-based similarity scoring between resumes and job
-    descriptions. It implements the LangChain BaseTool interface for seamless
-    integration with agents and chains.
-    
-    Attributes:
-        name (str): Tool identifier for LangChain agents
-        description (str): Tool description for agent decision-making
-        api_url (str): Base URL of the LoRA model API endpoint
-        api_key (str): Authentication key for API access
-        args_schema (Type[BaseModel]): Pydantic schema for input validation
-        
-    Example:
-        >>> tool = ResumeJobMatcherTool(
-        ...     api_url="http://localhost:8080",
-        ...     api_key="your-api-key"
-        ... )
-        >>> result = tool._run(
-        ...     resume_text="Python developer",
-        ...     job_description="Need Python skills"
-        ... )
-        >>> print(result)
-        'Match Score: 0.850 (Confidence: High)'
-        
-    Note:
-        - Implements both sync and async methods for LangChain compatibility
-        - Handles various input formats and comprehensive error handling
-        - Returns formatted string responses for agent consumption
-        - Provides detailed match scores and confidence levels
     """
 
     model_config = {"arbitrary_types_allowed": True}
@@ -105,11 +42,6 @@ class ResumeJobMatcherTool(BaseTool):
     def __init__(self, api_url: str, api_key: str, **kwargs):
         """
         Initialize the ResumeJobMatcherTool.
-        
-        Args:
-            api_url (str): The base URL of the LoRA model API endpoint
-            api_key (str): Authentication key for API access
-            **kwargs: Additional arguments passed to BaseTool
         """
         # Set tool attributes via kwargs
         kwargs.setdefault('name', "resume_job_matcher")
@@ -143,31 +75,6 @@ class ResumeJobMatcherTool(BaseTool):
     ) -> str:
         """
         Execute the LoRA model API call for resume-job matching.
-        
-        This method handles the core logic of calling the external LoRA model API,
-        including input validation, HTTP request formatting, and response processing.
-        
-        Args:
-            resume_text (str): The text content of the resume/CV to analyze
-            job_description (str): The job description text to match against
-            run_manager (optional): LangChain run manager for callback handling
-            
-        Returns:
-            str: Formatted string with match score and confidence level
-            
-        Example:
-            >>> result = tool._run(
-            ...     resume_text="Python developer", 
-            ...     job_description="Need Python skills"
-            ... )
-            >>> print(result)
-            'Match Score: 0.850 (Confidence: High)'
-            
-        Note:
-            - Validates input format and required fields
-            - Uses Bearer token authentication
-            - Implements 30-second timeout for API calls
-            - Returns formatted string responses for agent consumption
         """
         try:
             # Validate inputs
@@ -210,54 +117,50 @@ class ResumeJobMatcherTool(BaseTool):
         run_manager: Optional[CallbackManagerForToolRun] = None
     ) -> str:
         """
-        Async version of the LoRA model API call.
-        
-        Currently falls back to synchronous implementation. In production,
-        this should be implemented with async HTTP clients like aiohttp.
-        
-        Args:
-            resume_text (str): The text content of the resume/CV to analyze
-            job_description (str): The job description text to match against
-            run_manager (optional): LangChain run manager for callbacks
-            
-        Returns:
-            str: Formatted string with match score and confidence level
-            
-        Note:
-            - Currently delegates to sync _run method
-            - Should be implemented with async HTTP client for production
+        Async version of the LoRA model API call using aiohttp.
         """
-        return self._run(resume_text, job_description, run_manager)
+        try:
+            import aiohttp
+            
+            # Validate inputs
+            if not resume_text or not job_description:
+                return "Error: Both resume_text and job_description are required"
+            
+            # Prepare the request payload
+            payload = {
+                "resume_text": resume_text,
+                "job_description": job_description
+            }
+            
+            # Make the API request
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    f"{self.api_url}/match",
+                    json=payload,
+                    headers=self.headers,
+                    timeout=30
+                ) as response:
+                    
+                    # Check if request was successful
+                    if response.status == 200:
+                        result = await response.json()
+                        score = result.get('match_score', 0)
+                        confidence = result.get('confidence', 'Unknown')
+                        
+                        return f"Match Score: {score:.3f} (Confidence: {confidence})"
+                    else:
+                        text = await response.text()
+                        return f"Error: {response.status} - {text}"
+            
+        except ImportError:
+            return "Error: aiohttp library not installed. Please install it to use async features."
+        except Exception as e:
+            return f"Async request failed: {str(e)}"
     
     def match_resume_job(self, resume_text: Optional[str] = None, job_description: Optional[str] = None, cv_text: Optional[str] = None) -> Dict[str, Any]:
         """
         Convenience method to match a resume to a job description.
-        
-        This method provides a simplified interface for direct API calls
-        without going through the LangChain tool interface. Returns raw API response.
-        
-        Args:
-            resume_text (str): The text content of the resume/CV to analyze (or cv_text)
-            job_description (str): The job description text to match against
-            cv_text (str): Alternative parameter name for resume_text (for backward compatibility)
-            
-        Returns:
-            Dict[str, Any]: Raw API response with match_score and confidence
-            
-        Example:
-            >>> matcher = ResumeJobMatcherTool(api_url="...", api_key="...")
-            >>> result = matcher.match_resume_job(
-            ...     resume_text="Senior Python Developer with 5 years experience",
-            ...     job_description="Looking for Python developer with web frameworks"
-            ... )
-            >>> print(result)
-            {'match_score': 0.780, 'confidence': 'High'}
-            
-        Note:
-            - Provides direct access without LangChain tool overhead
-            - Useful for standalone API integration
-            - Returns raw dictionary instead of formatted string
-            - Supports both resume_text and cv_text parameter names
+        Returns raw API response.
         """
         # Handle backward compatibility - cv_text parameter
         if cv_text is not None and resume_text is None:
@@ -310,34 +213,6 @@ class ResumeJobMatcherTool(BaseTool):
 class BatchResumeJobMatcherTool(BaseTool):
     """
     LangChain tool for matching a resume with multiple job descriptions at once.
-    
-    This tool extends the basic matching functionality to support batch processing,
-    allowing comparison of a single resume against multiple job descriptions
-    simultaneously for efficient job ranking and selection.
-    
-    Attributes:
-        name (str): Tool identifier for LangChain agents
-        description (str): Tool description for agent decision-making
-        api_url (str): Base URL of the LoRA model API endpoint
-        api_key (str): Authentication key for API access
-        args_schema (Type[BaseModel]): Pydantic schema for input validation
-        
-    Example:
-        >>> tool = BatchResumeJobMatcherTool(
-        ...     api_url="http://localhost:8080",
-        ...     api_key="your-api-key"
-        ... )
-        >>> result = tool._run(
-        ...     resume_text="Python developer",
-        ...     job_descriptions="Python role, Java role, DevOps role"
-        ... )
-        >>> print(result)
-        'Match Results:\n1. Score: 0.850 (High) - Python role...\nBest Match: 0.850 (High) - Python role...'
-        
-    Note:
-        - Processes multiple job descriptions in a single API call
-        - Returns ranked results with best match identification
-        - Optimized for job recommendation and ranking scenarios
     """
 
     model_config = {"arbitrary_types_allowed": True}
@@ -350,11 +225,6 @@ class BatchResumeJobMatcherTool(BaseTool):
     def __init__(self, api_url: str, api_key: str, **kwargs):
         """
         Initialize the BatchResumeJobMatcherTool.
-        
-        Args:
-            api_url (str): The base URL of the LoRA model API endpoint
-            api_key (str): Authentication key for API access
-            **kwargs: Additional arguments passed to BaseTool
         """
         # Set tool attributes via kwargs
         kwargs.setdefault('name', "batch_resume_job_matcher")
@@ -388,31 +258,6 @@ class BatchResumeJobMatcherTool(BaseTool):
     ) -> str:
         """
         Execute the batch matching tool for multiple job descriptions.
-        
-        This method processes a single resume against multiple job descriptions,
-        providing ranked results and identifying the best match.
-        
-        Args:
-            resume_text (str): The text content of the resume/CV to analyze
-            job_descriptions (str): Comma-separated job descriptions to match against
-            run_manager (optional): LangChain run manager for callback handling
-            
-        Returns:
-            str: Formatted string with all match results and best match identification
-            
-        Example:
-            >>> result = tool._run(
-            ...     resume_text="Python developer", 
-            ...     job_descriptions="Python role, Java role, DevOps role"
-            ... )
-            >>> print(result)
-            'Match Results:\n1. Score: 0.850 (High) - Python role...\nBest Match: 0.850 (High) - Python role...'
-            
-        Note:
-            - Parses comma-separated job descriptions
-            - Uses batch API endpoint for efficiency
-            - Returns ranked results with truncated descriptions
-            - Implements 60-second timeout for multiple comparisons
         """
         try:
             # Parse job descriptions
@@ -462,52 +307,58 @@ class BatchResumeJobMatcherTool(BaseTool):
         run_manager: Optional[CallbackManagerForToolRun] = None
     ) -> str:
         """
-        Async version of the batch matching tool.
-        
-        Currently falls back to synchronous implementation. In production,
-        this should be implemented with async HTTP clients like aiohttp.
-        
-        Args:
-            resume_text (str): The text content of the resume/CV to analyze
-            job_descriptions (str): Comma-separated job descriptions to match against
-            run_manager (optional): LangChain run manager for callbacks
-            
-        Returns:
-            str: Formatted string with batch match results
-            
-        Note:
-            - Currently delegates to sync _run method
-            - Should be implemented with async HTTP client for production
+        Async version of the batch matching tool using aiohttp.
         """
-        return self._run(resume_text, job_descriptions, run_manager)
+        try:
+            import aiohttp
+            
+            # Parse job descriptions
+            job_list = [desc.strip() for desc in job_descriptions.split(',')]
+            
+            if not resume_text or not job_list:
+                return "Error: Both resume_text and job_descriptions are required"
+            
+            payload = {
+                "resume_text": resume_text,
+                "job_descriptions": job_list
+            }
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    f"{self.api_url}/batch-match",
+                    json=payload,
+                    headers=self.headers,
+                    timeout=60
+                ) as response:
+                    
+                    if response.status == 200:
+                        result = await response.json()
+                        
+                        # Format results
+                        output = "Match Results:\n"
+                        for i, match in enumerate(result['results'], 1):
+                            desc_preview = match['job_description'][:100] + "..." if len(match['job_description']) > 100 else match['job_description']
+                            output += f"{i}. Score: {match['score']:.3f} ({match['confidence']}) - {desc_preview}\n"
+                        
+                        best = result['best_match']
+                        best_desc_preview = best['job_description'][:100] + "..." if len(best['job_description']) > 100 else best['job_description']
+                        output += f"\nBest Match: {best['score']:.3f} ({best['confidence']}) - {best_desc_preview}"
+                        
+                        return output
+                    else:
+                        text = await response.text()
+                        return f"Error: {response.status} - {text}"
+                
+        except ImportError:
+            return "Error: aiohttp library not installed. Please install it to use async features."
+        except Exception as e:
+            return f"Async request failed: {str(e)}"
 
 
 # Convenience function for easy integration
 def create_matcher_tool(api_url: str, api_key: str) -> ResumeJobMatcherTool:
     """
     Factory function to create and configure a ResumeJobMatcherTool instance.
-    
-    This convenience function simplifies tool creation and ensures proper
-    configuration for common use cases.
-    
-    Args:
-        api_url (str): The base URL of the LoRA model API endpoint
-        api_key (str): Authentication key for API access
-        
-    Returns:
-        ResumeJobMatcherTool: Configured tool instance ready for use
-        
-    Example:
-        >>> matcher = create_matcher_tool(
-        ...     api_url="http://localhost:8080",
-        ...     api_key="your-secret-key"
-        ... )
-        >>> result = matcher.match_resume_job("CV text", "Job description")
-        
-    Note:
-        - Validates configuration parameters
-        - Returns ready-to-use tool instance
-        - Useful for dependency injection and factory patterns
     """
     return ResumeJobMatcherTool(api_url=api_url, api_key=api_key)
 
@@ -515,28 +366,6 @@ def create_matcher_tool(api_url: str, api_key: str) -> ResumeJobMatcherTool:
 def create_batch_matcher_tool(api_url: str, api_key: str) -> BatchResumeJobMatcherTool:
     """
     Factory function to create and configure a BatchResumeJobMatcherTool instance.
-    
-    This convenience function simplifies batch tool creation for multi-job
-    comparison scenarios.
-    
-    Args:
-        api_url (str): The base URL of the LoRA model API endpoint
-        api_key (str): Authentication key for API access
-        
-    Returns:
-        BatchResumeJobMatcherTool: Configured batch tool instance ready for use
-        
-    Example:
-        >>> batch_matcher = create_batch_matcher_tool(
-        ...     api_url="http://localhost:8080",
-        ...     api_key="your-secret-key"
-        ... )
-        >>> result = batch_matcher._run("CV text", "Job1, Job2, Job3")
-        
-    Note:
-        - Optimized for multiple job comparisons
-        - Returns ranked results with best match identification
-        - Useful for job recommendation systems
     """
     return BatchResumeJobMatcherTool(api_url=api_url, api_key=api_key)
 

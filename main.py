@@ -1,36 +1,7 @@
 """
 CV Analyzer FastAPI Application
 
-This module implements the main FastAPI application for the CV Analyzer system.
-It provides a REST API endpoint for analyzing CVs against job descriptions using
-advanced AI techniques including RAG pipelines and LoRA model integration.
-
-Key Features:
-- FastAPI-based REST API with automatic documentation
-- File upload handling for CV documents (PDF, DOC, DOCX)
-- AI-powered skill extraction and matching
-- Dual scoring system (skills-based + neural LoRA scoring)
-- Comprehensive feedback generation
-- Request/response logging and monitoring
-- CORS support for web applications
-
-API Endpoints:
-- POST /analyze_cv: Main endpoint for CV analysis
-
-Architecture:
-1. File Upload: Receives CV files via multipart form data
-2. CV Parsing: Extracts text content from various document formats
-3. Skill Analysis: Uses RAG pipeline for skill extraction and matching
-4. LoRA Scoring: Integrates neural model for semantic similarity
-5. Feedback Generation: Creates structured feedback using AI
-6. Response: Returns comprehensive analysis results
-
-Dependencies:
-- fastapi: Web framework and API development
-- tools.cv_parser: Document parsing and text extraction
-- tools.skill_extractor: RAG-based skill analysis
-- tools.feedback_generator: AI-powered feedback creation
-
+Main API endpoint for analyzing CVs against job descriptions using RAG and LoRA.
 """
 
 # main.py
@@ -82,62 +53,6 @@ async def analyze_cv(
 ):
     """
     Analyze a CV against a job description using AI-powered techniques.
-    
-    This endpoint performs comprehensive CV analysis by combining multiple AI
-    techniques including RAG-based skill extraction, LoRA model scoring, and
-    structured feedback generation.
-    
-    Args:
-        file (UploadFile): The CV file to analyze (PDF, DOC, DOCX formats supported)
-        job_description (str): The job description text to match against
-        
-    Returns:
-        dict: Comprehensive analysis results containing:
-            - matched_skills (list): Skills found in both CV and job description
-            - missing_skills (list): Skills in job description but missing from CV
-            - score (int): Skills-based compatibility score (0-100)
-            - lora_score (int): Neural model similarity score (0-100)
-            - feedback (dict): Structured AI-generated feedback with:
-                - overall_analysis: General CV assessment
-                - positive_feedback: Strengths based on matched skills
-                - negative_feedback: Improvement areas based on missing skills
-            - error (str, optional): Error message if processing fails
-            
-    Example Response:
-        {
-            "matched_skills": ["Python", "Django", "REST APIs"],
-            "missing_skills": ["Docker", "Kubernetes"],
-            "score": 75,
-            "lora_score": 82,
-            "feedback": {
-                "overall_analysis": "Well-structured CV with clear technical sections...",
-                "positive_feedback": "Strong Python and web development experience...",
-                "negative_feedback": "Consider adding containerization skills..."
-            }
-        }
-        
-    HTTP Status Codes:
-        200: Successful analysis
-        400: Invalid input (missing file or job description)
-        422: File parsing error or invalid format
-        500: Internal server error
-        
-    Error Response Format:
-        {
-            "matched_skills": [],
-            "missing_skills": [],
-            "score": 0,
-            "lora_score": 0,
-            "feedback": {},
-            "error": "Detailed error message"
-        }
-        
-    Note:
-        - Supports PDF, DOC, and DOCX file formats
-        - Maximum file size determined by MAX_CONTENT_LENGTH config
-        - All processing is logged for debugging and monitoring
-        - Uses temporary file storage for processing
-        - Implements comprehensive input validation
     """
     logging.debug("Received request to /analyze_cv")
     # Save the uploaded file
@@ -215,74 +130,6 @@ async def recommend_jobs(
 ):
     """
     Get job recommendations by matching CV against multiple job listings.
-    
-    This endpoint fetches job listings from selected source (Jobicy API or JobSpy scraper)
-    and matches them against the uploaded CV using lightweight profile extraction and
-    LoRA semantic matching for efficient, accurate recommendations.
-    
-    Args:
-        file (UploadFile): The CV file to analyze (PDF, DOC, DOCX formats supported)
-        region (Optional[str]): Filter jobs by region (e.g., "Remote", "USA", "Europe")
-        job_title (Optional[str]): Job title to search for (primarily for JobSpy)
-        top_k (int): Number of top matching jobs to return (default: 10, max: 50)
-        job_source (str): Job source to use: "jobicy" or "jobspy" (default: "jobicy")
-        jobspy_sites (Optional[str]): Comma-separated sites for JobSpy: "indeed,linkedin,zip_recruiter,glassdoor"
-        
-    Returns:
-        dict: Job recommendations containing:
-            - recommendations (list): Top matching jobs with:
-                - job_id: Unique job identifier
-                - job_title: Job title/position
-                - company: Company name
-                - location: Job location
-                - match_score: Overall match score (0-100)
-                - lora_score: LoRA semantic similarity score
-                - profile_score: Profile-based match score
-                - match_reasons: List of reasons why this job matches
-                - job_url: Link to full job posting
-                - job_type: Full-time, Contract, etc.
-            - total_jobs_analyzed: Total jobs analyzed
-            - region_filter: Region filter applied (if any)
-            - job_source_used: Which job source was used
-            - error (str, optional): Error message if processing fails
-            
-    Example Response:
-        {
-            "recommendations": [
-                {
-                    "job_title": "Senior Python Developer",
-                    "company": "Tech Corp",
-                    "location": "Remote",
-                    "match_score": 87.5,
-                    "lora_score": 85.2,
-                    "profile_score": 91.3,
-                    "match_reasons": [
-                        "Strong skills alignment (91%)",
-                        "High semantic similarity (85%)",
-                        "Similar role to your Python Developer experience"
-                    ],
-                    "job_url": "https://...",
-                    "job_type": "Full-time"
-                },
-                ...
-            ],
-            "total_jobs_analyzed": 50,
-            "region_filter": "Remote",
-            "job_source_used": "jobicy"
-        }
-        
-    HTTP Status Codes:
-        200: Successful recommendation
-        400: Invalid input (missing file or invalid job source)
-        422: File parsing error or invalid format
-        500: Internal server error
-        
-    Note:
-        - Jobicy: Fast API, remote jobs only
-        - JobSpy: Scrapes Indeed, LinkedIn, ZipRecruiter, Glassdoor
-        - Uses lightweight profile extraction for speed
-        - Parallel LoRA scoring for efficiency
-        - Maximum 50 jobs fetched per request
     """
     logging.info(f"Received request to /recommend_jobs with region={region}, job_source={job_source}, top_k={top_k}")
     
@@ -385,3 +232,41 @@ async def list_job_sources():
     return {
         "sources": get_available_job_sources()
     }
+
+
+@app.post("/extract_profile")
+async def extract_profile_endpoint(file: UploadFile = File(...)):
+    """
+    Extract profile metadata from CV (job titles, preferred roles, etc).
+    """
+    logging.info(f"Received request to /extract_profile for file: {file.filename}")
+    
+    try:
+        # Save the uploaded file
+        file_path = f"/tmp/{file.filename}"
+        with open(file_path, "wb") as f:
+            f.write(await file.read())
+        
+        # Parse content
+        cv_text = parse_cv(file_path)
+        
+        if not cv_text or not cv_text.strip():
+            raise HTTPException(status_code=400, detail="Could not parse text from CV")
+            
+        # Extract profile specifically
+        from tools.cv_profile_extractor import extract_cv_profile
+        profile = extract_cv_profile(cv_text, fast_mode=False)
+        
+        return {
+            "job_titles": profile.job_titles,
+            "preferred_roles": profile.preferred_roles,
+            "skills": profile.primary_skills,
+            "experience_years": profile.experience_years
+        }
+        
+    except Exception as e:
+        logging.error(f"Error extracting profile: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if os.path.exists(file_path):
+            os.remove(file_path)

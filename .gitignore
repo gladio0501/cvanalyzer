@@ -75,3 +75,25 @@ Pipfile.lock
 
 # MacOS
 .DS_Store
+
+# Thesis and documentation drafts
+Thesis_preview*.md
+Thesis_preview*.pdf
+
+# Test files (local testing)
+test_*.py
+tests/
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
+
+# Uploads directory
+uploads/
+
+# Lora local model directory
+Lora/
+
+# Node modules (frontend)
+node_modules/

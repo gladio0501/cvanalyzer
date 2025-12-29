@@ -1,30 +1,5 @@
 """
-Skill Extraction and Scoring Module for CV Analyzer
-
-This module implements a sophisticated RAG (Retrieval Augmented Generation) pipeline 
-for extracting and scoring skills from CVs against job descriptions. It combines 
-multiple AI techniques including vector search, LLM-based analysis, and external 
-LoRA model integration.
-
-Key Features:
-- RAG pipeline with FAISS vector store for skill matching
-- Hybrid skill extraction (LLM + keyword-based fallback)
-- Knowledge base filtering and normalization
-- LoRA model integration for semantic similarity scoring
-- LangSmith tracing for comprehensive monitoring
-- Robust error handling and input validation
-
-Architecture:
-1. Skills Knowledge Base: JSON-based structured skill definitions
-2. Vector Store: FAISS index with OpenAI embeddings for semantic search
-3. LLM Chain: GPT-4 based skill extraction and scoring
-4. LoRA Integration: External API for neural similarity scoring
-
-Dependencies:
-- langchain_openai: For ChatOpenAI and OpenAI embeddings
-- langchain_community: For FAISS vector store
-- langsmith: For tracing and monitoring
-- pydantic: For data validation and structured outputs
+Skill Extraction and Scoring Module for CV Analyzer.
 """
 
 import json
@@ -129,22 +104,41 @@ retriever = vector_store.as_retriever()
 class SkillComparison(BaseModel):
     """
     Pydantic model for structured skill comparison output.
-    
-    This model defines the expected output format for the RAG pipeline,
-    ensuring consistent and validated responses from the LLM.
-    
-    Attributes:
-        matched_skills (List[str]): Skills found in both CV and job description
-        missing_skills (List[str]): Skills mentioned in job description but missing from CV
-        score (int): Compatibility score from 0-100 based on skill matching ratio
     """
-    matched_skills: List[str] = Field(description="Skills present in both the CV and job description, based on the provided context")
-    missing_skills: List[str] = Field(description="Skills from the context that are in the job description but not in the CV")
-    score: int = Field(description="A score from 0 to 100 representing how well the CV matches the job description, based on the context")
+    critical_skills_matched: List[str] = Field(description="Critical/Must-have skills present in both CV and Job Description")
+    bonus_skills_matched: List[str] = Field(description="Bonus/Nice-to-have skills present in both CV and Job Description")
+    critical_skills_missing: List[str] = Field(description="Critical/Must-have skills required by Job but missing in CV")
+    bonus_skills_missing: List[str] = Field(description="Bonus/Nice-to-have skills mentioned in Job but missing in CV")
+    reasoning: str = Field(description="Brief explanation of the assessment")
 
 # 5. Update the Prompt Template
 scoring_prompt = PromptTemplate(
-    template='''You are a world-class expert in talent assessment. Your task is to analyze a candidate's CV against a job description and output a JSON object with matched skills, missing skills, and a score.\n\n**Instructions:**\n1.  **Analyze Job Requirements:** Carefully read the **Job Description** to identify the key skills required.\n2.  **Analyze CV Skills:** Carefully read the **CV Text** to identify the skills the candidate possesses.\n3.  **Identify Matched Skills:** List the skills that are present in BOTH the **Job Description** AND the **CV**.\n4.  **Identify Missing Skills:** List the key skills that are explicitly mentioned in the **Job Description** but are NOT found in the **CV**.\n5.  **Calculate Score:** The score should reflect the proportion of matched skills to the total required skills. `Score = (Number of Matched Skills / (Number of Matched Skills + Number of Missing Skills)) * 100`. If there are no required skills, the score should be 100. Round to the nearest integer.\n6.  **Use Context for Guidance:** The **Context** provides a list of skills and their descriptions. Use this to understand and identify skills accurately, but only list skills as matched or missing if they meet the criteria above.\n\n**Context (Relevant Skills from Knowledge Base):**\n{context}\n\n**Job Description:**\n{job_description}\n\n**CV Text:**\n{cv_text}\n\n**Your Output (JSON format):**\n{format_instructions}\n''',
+    template='''You are a world-class expert in technical talent assessment. Your task is to analyze a candidate's CV against a job description and compare their skills.
+
+**Instructions:**
+1.  **Analyze Job Requirements:** Identify skills in the **Job Description** and classify them into:
+    *   **Critical Skills:** "Must have", "Required", "Essential", or core technologies for the role.
+    *   **Bonus Skills:** "Nice to have", "Preferred", "Plus", or auxiliary technologies.
+2.  **Analyze CV:** Identify skills possessed by the candidate in the **CV Text**.
+3.  **Compare:**
+    *   List **Critical Skills Matched**: Critical skills found in both.
+    *   List **Bonus Skills Matched**: Bonus skills found in both.
+    *   List **Critical Skills Missing**: Critical skills in Job but NOT in CV.
+    *   List **Bonus Skills Missing**: Bonus skills in Job but NOT in CV.
+4.  **Context:** Use the provided **Context** to understand skill synonyms and categories.
+
+**Context (Relevant Skills from Knowledge Base):**
+{context}
+
+**Job Description:**
+{job_description}
+
+**CV Text:**
+{cv_text}
+
+**Your Output (JSON format):**
+{format_instructions}
+''',
     input_variables=["context", "cv_text", "job_description"],
     partial_variables={"format_instructions": JsonOutputParser(pydantic_object=SkillComparison).get_format_instructions()},
 )
@@ -154,29 +148,6 @@ scoring_prompt = PromptTemplate(
 def extract_skills_llm(cv_text: str, job_description: str) -> list:
     """
     Extract skills using LLM with knowledge base filtering and keyword fallback.
-    
-    This function uses a hybrid approach to skill extraction:
-    1. LLM-based extraction from CV and job description texts
-    2. Knowledge base filtering to ensure only valid skills are returned
-    3. Keyword-based fallback for skills missed by the LLM
-    4. Normalization and deduplication of results
-    
-    Args:
-        cv_text (str): The parsed text content of the CV/resume
-        job_description (str): The job description text to analyze
-        
-    Returns:
-        list: Sorted list of normalized skill names from the knowledge base
-        
-    Example:
-        >>> skills = extract_skills_llm("Python developer with Django", "Need Python and React skills")
-        >>> print(skills)
-        ['Django', 'Python', 'React']
-        
-    Note:
-        - Only returns skills present in the skills knowledge base
-        - Uses case-insensitive matching with word boundaries for multi-word skills
-        - Includes LangSmith tracing for monitoring extraction performance
     """
     kb_skill_names = [skill['skill'] for skill in skills_data]
     skill_extraction_prompt = PromptTemplate(
@@ -242,31 +213,6 @@ Skills (JSON array):''',
 def get_lora_score(cv_text, job_description):
     """
     Get semantic similarity score from external LoRA model API.
-    
-    This function calls the external LoRA (Low-Rank Adaptation) model API
-    to get a neural network-based similarity score between CV and job description.
-    Includes comprehensive logging and error handling.
-    
-    Args:
-        cv_text (str): The parsed text content of the CV/resume
-        job_description (str): The job description text to compare against
-        
-    Returns:
-        dict: API response containing:
-            - match_score (float): Similarity score from the LoRA model
-            - confidence (str): Confidence level of the prediction
-            - status (str): Success/error/disabled status
-            - error_message (str, optional): Error details if call fails
-            
-    Example:
-        >>> result = get_lora_score("Python developer", "Need Python skills")
-        >>> print(result)
-        {'match_score': 0.85, 'confidence': 'High', 'status': 'success'}
-        
-    Note:
-        - Returns default values if matcher is not configured
-        - Includes detailed logging for debugging API calls
-        - Handles network timeouts and connection errors gracefully
     """
     if matcher is None:
         print("[LoRA Matcher] WARNING: Matcher not configured, returning default score")
@@ -298,47 +244,6 @@ rag_chain = (
 def extract_and_score_skills(cv_text: str, job_description: str):
     """
     Main function to extract skills and generate comprehensive scoring using RAG pipeline.
-    
-    This is the primary entry point that orchestrates the entire skill analysis process:
-    1. Input validation and error handling
-    2. RAG-based skill extraction and matching
-    3. External LoRA model scoring
-    4. Score normalization and result combination
-    
-    The function combines two scoring mechanisms:
-    - Skills-based score: Traditional matching based on knowledge base
-    - LoRA score: Neural network-based semantic similarity
-    
-    Args:
-        cv_text (str): The parsed text content of the CV/resume
-        job_description (str): The job description text to analyze against
-        
-    Returns:
-        dict: Comprehensive analysis containing:
-            - matched_skills (list): Skills found in both CV and job description
-            - missing_skills (list): Skills in job description but missing from CV
-            - score (int): Skills-based compatibility score (0-100)
-            - lora_score (int): LoRA model similarity score (0-100)
-            - error (str, optional): Error message if processing fails
-            
-    Example:
-        >>> result = extract_and_score_skills("Python developer with Django", "Need Python, Django, React")
-        >>> print(result)
-        {
-            'matched_skills': ['Python', 'Django'],
-            'missing_skills': ['React'],
-            'score': 67,
-            'lora_score': 75
-        }
-        
-    Raises:
-        Exception: If critical errors occur in RAG pipeline or LoRA API calls
-        
-    Note:
-        - Validates inputs and returns structured error responses
-        - Includes comprehensive logging for debugging
-        - Converts LoRA scores from 0-1 range to 0-100 percentage
-        - Uses LangSmith tracing for monitoring pipeline performance
     """
     if not job_description or not job_description.strip():
         print("[RAG] ERROR: Job description is empty or missing.")
@@ -364,34 +269,57 @@ def extract_and_score_skills(cv_text: str, job_description: str):
     # Get the skills-based RAG result
     rag_result = rag_chain.invoke({"cv_text": cv_text, "job_description": job_description}, run_name="RAG Scoring Chain")
     
+    # Calculate weighted score
+    # Weights: Critical = 1.5, Bonus = 0.5
+    # Score = ( (Critical_Matched * 1.5) + (Bonus_Matched * 0.5) ) / Total_Potential_Score * 100
+    
+    n_critical_matched = len(rag_result.get('critical_skills_matched', []))
+    n_bonus_matched = len(rag_result.get('bonus_skills_matched', []))
+    n_critical_missing = len(rag_result.get('critical_skills_missing', []))
+    n_bonus_missing = len(rag_result.get('bonus_skills_missing', []))
+    
+    total_critical = n_critical_matched + n_critical_missing
+    total_bonus = n_bonus_matched + n_bonus_missing
+    
+    if total_critical + total_bonus == 0:
+        skill_score = 0
+    else:
+        weighted_points = (n_critical_matched * 1.5) + (n_bonus_matched * 0.5)
+        max_points = (total_critical * 1.5) + (total_bonus * 0.5)
+        skill_score = int((weighted_points / max_points) * 100) if max_points > 0 else 0
+        
+    print(f"[RAG] Calculated Score: {skill_score} (Critical: {n_critical_matched}/{total_critical}, Bonus: {n_bonus_matched}/{total_bonus})")
+    
     # Get the LoRA score separately
     lora_result = get_lora_score(cv_text, job_description)
     lora_score = lora_result.get("match_score", 0)
     
     print(f"[LoRA Matcher] Raw result: {lora_result}")
-    print(f"[LoRA Matcher] Raw match_score: {lora_score} (type: {type(lora_score)})")
     
     # Convert LoRA score from 0-1 range to 0-100 range if needed
     if isinstance(lora_score, float) and 0 <= lora_score <= 1:
         lora_score_converted = int(lora_score * 100)
-        print(f"[LoRA Matcher] Converted score from {lora_score} to {lora_score_converted} (0-1 to 0-100 range)")
         lora_score = lora_score_converted
     elif isinstance(lora_score, float):
         lora_score_converted = int(lora_score)
-        print(f"[LoRA Matcher] Converted float score from {lora_score} to {lora_score_converted}")
         lora_score = lora_score_converted
     
     print(f"[LoRA Matcher] Final lora_score: {lora_score}")
-    print(f"[LoRA Matcher] LoRA status: {lora_result.get('status', 'unknown')}")
-    if lora_result.get('confidence'):
-        print(f"[LoRA Matcher] LoRA confidence: {lora_result.get('confidence')}")
-    if lora_result.get('error_message'):
-        print(f"[LoRA Matcher] LoRA error: {lora_result.get('error_message')}")
     
     # Combine the results
+    # Flatten structure for frontend compatibility
     final_result = {
-        **rag_result,
-        "lora_score": lora_score
+        "score": skill_score,
+        "matched_skills": rag_result.get('critical_skills_matched', []) + rag_result.get('bonus_skills_matched', []),
+        "missing_skills": rag_result.get('critical_skills_missing', []) + rag_result.get('bonus_skills_missing', []),
+        "critical_matched": rag_result.get('critical_skills_matched', []),
+        "bonus_matched": rag_result.get('bonus_skills_matched', []),
+        "critical_missing": rag_result.get('critical_skills_missing', []),
+        "bonus_missing": rag_result.get('bonus_skills_missing', []),
+        "reasoning": rag_result.get('reasoning', ''),
+        "lora_score": lora_score,
+        "lora_status": lora_result.get('status'),
+        "lora_confidence": lora_result.get('confidence')
     }
     
     return final_result

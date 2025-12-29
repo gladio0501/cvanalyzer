@@ -1,11 +1,6 @@
 """
-Job Sources Module
-
-Unified interface for multiple job data sources:
-- Jobicy API: Fast, reliable remote job listings
-- JobSpy: Web scraping from Indeed, LinkedIn, ZipRecruiter, Glassdoor
-
-Allows users to choose their preferred job source.
+Job Sources Module.
+Unified interface for multiple job data sources.
 """
 
 from typing import List, Dict, Any, Optional
@@ -25,10 +20,6 @@ class JobSource(Enum):
 class UnifiedJobFetcher:
     """
     Unified job fetcher that supports multiple data sources.
-    
-    Supports:
-    - Jobicy API: Remote jobs from Jobicy.com
-    - JobSpy: Scrapes Indeed, LinkedIn, ZipRecruiter, Glassdoor
     """
     
     def __init__(self, source: JobSource = JobSource.JOBICY):
@@ -53,15 +44,6 @@ class UnifiedJobFetcher:
     ) -> List[Dict[str, Any]]:
         """
         Fetch jobs from the configured source.
-        
-        Args:
-            region (str): Region filter (for Jobicy) or location (for JobSpy)
-            job_title (str): Job title to search for (primarily for JobSpy)
-            limit (int): Maximum number of jobs to return
-            site_names (List[str]): Sites to scrape (for JobSpy): 'indeed', 'linkedin', 'zip_recruiter', 'glassdoor'
-            
-        Returns:
-            List[Dict]: List of normalized job dictionaries
         """
         if self.source == JobSource.JOBICY:
             return self._fetch_from_jobicy(region=region, limit=limit)

@@ -1,19 +1,5 @@
 """
-Job Fetcher Module - RSS Feed Integration
-
-This module fetches and parses job listings from external RSS feeds,
-specifically designed to work with the Jobicy.com jobs API.
-
-Features:
-- RSS feed parsing with XML support
-- Job filtering by region/location
-- Caching for performance
-- Error handling and retry logic
-- Job data normalization
-
-Dependencies:
-- feedparser: For RSS feed parsing
-- requests: For HTTP communication
+Job Fetcher Module - RSS Feed Integration.
 """
 
 import feedparser
@@ -29,12 +15,6 @@ logger = logging.getLogger(__name__)
 class JobFetcher:
     """
     Fetches and filters job listings from RSS feeds.
-    
-    Attributes:
-        base_url (str): Base URL for the job RSS feed
-        cache (dict): In-memory cache for job listings
-        cache_expiry (datetime): When the cache expires
-        cache_duration (int): Cache duration in minutes
     """
     
     def __init__(
@@ -62,19 +42,6 @@ class JobFetcher:
     ) -> List[Dict[str, Any]]:
         """
         Fetch job listings from RSS feed with optional filtering.
-        
-        Args:
-            region (str): Filter jobs by region/location (e.g., "USA", "Europe", "Remote")
-            limit (int): Maximum number of jobs to return
-            force_refresh (bool): Force cache refresh
-            
-        Returns:
-            List[Dict[str, Any]]: List of job listings with normalized data
-            
-        Example:
-            >>> fetcher = JobFetcher()
-            >>> jobs = fetcher.fetch_jobs(region="Remote", limit=20)
-            >>> print(f"Found {len(jobs)} remote jobs")
         """
         cache_key = f"{region}_{limit}"
         

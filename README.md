@@ -1,67 +1,100 @@
 # CV Analyzer - AI-Powered Resume Analysis System
 
-A sophisticated CV analysis system that combines multiple AI techniques including RAG (Retrieval Augmented Generation) pipelines, LoRA model integration, and advanced NLP to provide comprehensive resume-job matching analysis.
+A sophisticated CV analysis system with a modern React frontend and dual backend architecture (Flask + FastAPI) providing comprehensive resume-job matching analysis with Google OAuth authentication.
 
 ## 🚀 Features
 
 ### Core Capabilities
 
-- **Multi-format CV Parsing**: Supports PDF and DOCX document formats
+- **Modern React Frontend**: Built with React 18, TypeScript, Vite, and Tailwind CSS
+- **Secure Authentication**: Google OAuth integration with JWT tokens
+- **Multi-format CV Parsing**: Supports PDF, DOC, DOCX, and TXT formats
 - **RAG-based Skill Extraction**: Uses FAISS vector store with OpenAI embeddings
-- **Dual Scoring System**: 
-  - Skills-based matching using knowledge base
-  - Neural similarity scoring via LoRA model integration
-- **AI-Powered Feedback**: Structured feedback generation using GPT-4
-- **Job Recommendations**: Match CV against real-time job listings from Jobicy RSS feed
-- **Web Interface**: User-friendly Flask frontend with FastAPI backend
+- **Dual Job Sources**: 
+  - Jobicy API (fast, curated remote jobs)
+  - JobSpy Scraper (Indeed, LinkedIn, ZipRecruiter, Glassdoor)
+- **AI-Powered Analysis**: GPT-powered CV matching and feedback generation
+- **Real-time Results**: Interactive job search with filtering and sorting
 - **Comprehensive Monitoring**: LangSmith tracing integration
 
 ### Advanced Features
 
-- **Hybrid Skill Detection**: LLM + keyword-based fallback
-- **Knowledge Base Filtering**: Curated skills database with normalization
-- **External API Integration**: LoRA model for semantic similarity
-- **Parallel Processing**: Concurrent LoRA scoring for multiple jobs
-- **Lightweight CV Extraction**: Fast profile extraction for job matching
+- **Drag-and-Drop Upload**: Intuitive file upload with react-dropzone
+- **Form Validation**: Client-side validation with zod and react-hook-form
+- **Protected Routes**: JWT-based authentication with automatic token refresh
+- **State Management**: Zustand for global state with localStorage persistence
+- **Responsive Design**: Mobile-first Tailwind CSS design system
 - **Region-based Filtering**: Filter jobs by location (Remote, USA, Europe, etc.)
-- **Robust Error Handling**: Comprehensive validation and logging
-- **Type-Safe Configuration**: Pydantic-based settings management
+- **Match Scoring**: AI-powered relevance scoring with visual badges
+- **Save Jobs**: Bookmark jobs for later review
 
 ## 🏗️ Architecture
 
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Flask Web     │    │   FastAPI       │    │   External      │
-│   Frontend      │────│   Backend       │────│   LoRA API      │
-│                 │    │                 │    │                 │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │
-         │                       │                       │
-         v                       v                       v
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   HTML/CSS      │    │   RAG Pipeline  │    │   Neural        │
-│   Templates     │    │   FAISS Vector  │    │   Similarity    │
-│                 │    │   Store         │    │   Scoring       │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-                                │
-                                │
-                                v
-                       ┌─────────────────┐
-                       │   OpenAI LLM    │
-                       │   Embeddings    │
-                       │   GPT-4         │
-                       └─────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                    React Frontend (Vite)                     │
+│                   Port 5173 (Development)                    │
+│                                                              │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
+│  │  Auth Pages  │  │   CV Upload  │  │  Job Search  │     │
+│  │  - Login     │  │  - Dropzone  │  │  - Filters   │     │
+│  │  - Callback  │  │  - Analysis  │  │  - Results   │     │
+│  └──────────────┘  └──────────────┘  └──────────────┘     │
+│                                                              │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │  State Management (Zustand) + API Client (Axios)     │  │
+│  └──────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+                           │
+                           │ HTTP/REST API
+                           ↓
+┌─────────────────────────────────────────────────────────────┐
+│                    Flask Backend (API Mode)                  │
+│                        Port 5001                             │
+│                                                              │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
+│  │  OAuth       │  │  CV Upload   │  │  Job Sources │     │
+│  │  Routes      │  │  Processing  │  │  Management  │     │
+│  └──────────────┘  └──────────────┘  └──────────────┘     │
+│                                                              │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │  SQLAlchemy ORM + Alembic Migrations               │  │
+│  │  Models: User, CVUpload, JobSearch, SavedJob        │  │
+│  └──────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+                           │
+                           │ Internal API Calls
+                           ↓
+┌─────────────────────────────────────────────────────────────┐
+│                   FastAPI Backend (AI/ML)                    │
+│                        Port 8000                             │
+│                                                              │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │  RAG Pipeline + FAISS Vector Store + OpenAI LLM     │  │
+│  │  - CV Analysis       - Job Matching                  │  │
+│  │  - Skill Extraction  - Feedback Generation           │  │
+│  └──────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+                           │
+                           ↓
+                  ┌─────────────────┐
+                  │   External APIs  │
+                  │  - OpenAI GPT    │
+                  │  - Jobicy API    │
+                  │  - JobSpy        │
+                  └─────────────────┘
 ```
 
 ## 📦 Installation
 
 ### Prerequisites
 - Python 3.11+
+- Node.js 18+ and npm
 - OpenAI API key
+- Google Cloud OAuth credentials
 - (Optional) LangSmith account for tracing
-- (Optional) External LoRA model API
 
-### Setup
+### Backend Setup
 
 1. **Clone the repository**
 ```bash
@@ -75,7 +108,7 @@ python -m venv venv
 source venv/bin/activate  # On Windows: venv\\Scripts\\activate
 ```
 
-3. **Install dependencies**
+3. **Install Python dependencies**
 ```bash
 pip install -r requirements.txt
 ```
@@ -83,250 +116,186 @@ pip install -r requirements.txt
 4. **Configure environment variables**
 ```bash
 cp .env.example .env
-# Edit .env with your API keys and configuration
+# Edit .env with your configuration
 ```
+
+5. **Initialize database**
+```bash
+alembic upgrade head
+```
+
+### Frontend Setup
+
+1. **Navigate to frontend directory**
+```bash
+cd frontend
+```
+
+2. **Install npm dependencies**
+```bash
+npm install
+```
+
+3. **Configure frontend environment** (if needed)
+```bash
+# Vite automatically proxies /api to Flask backend
+```
+
+### Google OAuth Setup
+
+Follow [OAUTH_SETUP.md](OAUTH_SETUP.md) for detailed instructions:
+
+1. Create Google Cloud project
+2. Configure OAuth consent screen
+3. Create OAuth 2.0 credentials
+4. Add authorized redirect URI: `http://localhost:5001/api/auth/callback/google`
+5. Update `.env` with `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`
 
 ### Environment Variables
 
+See [PORT_CONFIGURATION.md](PORT_CONFIGURATION.md) for port details.
+
 | Variable | Required | Description |
 |----------|----------|-------------|
+| `FLASK_PORT` | No | Flask server port (default: 5001) |
+| `GOOGLE_CLIENT_ID` | Yes | Google OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | Yes | Google OAuth client secret |
+| `JWT_SECRET_KEY` | Yes | Secret key for JWT tokens |
+| `JWT_ACCESS_TOKEN_EXPIRES` | No | Access token expiry in seconds (default: 86400) |
+| `JWT_REFRESH_TOKEN_EXPIRES` | No | Refresh token expiry in seconds (default: 2592000) |
+| `FRONTEND_URL` | No | React dev server URL (default: http://localhost:5173) |
+| `CORS_ORIGINS` | No | Allowed CORS origins |
 | `OPENAI_API_KEY` | Yes | OpenAI API key for LLM and embeddings |
-| `LANGSMITH_API_KEY` | No | LangSmith tracing API key |
-| `LANGSMITH_PROJECT` | No | LangSmith project name |
-| `LANGSMITH_TRACING` | No | Enable/disable tracing (default: false) |
-| `LORA_MATCHER_API_URL` | No | External LoRA model API URL |
-| `LORA_MATCHER_API_KEY` | No | LoRA model API authentication key |
+| `DATABASE_URL` | No | SQLite database path (default: sqlite:///cvanalyzer.db) |
 
 ## 🚀 Usage
 
 ### Starting the Services
 
-1. **Start FastAPI Backend**
+**Development Mode (3 terminals required):**
+
+1. **Terminal 1: FastAPI Backend (AI/ML)**
 ```bash
+cd /path/to/cvanalyzer
+source venv/bin/activate
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-2. **Start Flask Frontend**
+2. **Terminal 2: Flask Backend (OAuth & API)**
 ```bash
+cd /path/to/cvanalyzer
+source venv/bin/activate
 python app.py
+# Runs on port 5001 (port 5000 conflicts with macOS AirPlay)
 ```
 
-3. **Access the Web Interface**
-- Open browser to `http://localhost:5000`
-- Choose between two features:
-  - **CV Analysis**: Compare CV against a specific job description
-  - **Job Recommendations**: Find matching jobs from current listings
-
-### Web Interface Usage
-
-#### CV Analysis (Traditional Mode)
-1. Upload CV file (PDF/DOCX)
-2. Enter job description
-3. Get comprehensive analysis with:
-   - Matched and missing skills
-   - Skills-based score
-   - LoRA semantic similarity score
-   - Detailed AI feedback
-
-#### Job Recommendations (New Feature)
-1. Navigate to "Job Recommendations" from the homepage
-2. Upload your CV (PDF/DOCX)
-3. Select target region (Remote, USA, Europe, Asia, etc.)
-4. Choose number of top jobs to display (default: 10)
-5. Get ranked job matches with:
-   - Match score (combined LoRA + profile scoring)
-   - Match reasons (why the job fits)
-   - Job details (title, company, location, tags)
-   - Direct application links
-
-### API Usage
-
-#### Analyze CV Endpoint
-
+3. **Terminal 3: React Frontend**
 ```bash
-curl -X POST "http://localhost:8000/analyze_cv" \
-  -H "Content-Type: multipart/form-data" \
-  -F "file=@resume.pdf" \
-  -F "job_description=Looking for Python developer with web frameworks"
+cd /path/to/cvanalyzer/frontend
+npm run dev
+# Runs on port 5173, proxies /api to Flask
 ```
 
-#### Job Recommendations Endpoint
+4. **Access the application**
+- Open browser to `http://localhost:5173`
+- Login with Google account
+- Access dashboard with quick actions
 
-```bash
-curl -X POST "http://localhost:8000/recommend_jobs" \
-  -H "Content-Type: multipart/form-data" \
-  -F "file=@resume.pdf" \
-  -F "region=Remote" \
-  -F "top_k=10"
-```
+### Application Features
 
-**Parameters:**
-- `file`: CV file (PDF/DOCX)
-- `region`: Target job location (optional, e.g., "Remote", "USA", "Europe")
-- `top_k`: Number of top jobs to return (default: 10)
+#### 1. Dashboard
+- User profile with OAuth info
+- Quick action cards (Upload CV, Search Jobs, Saved Jobs)
+- Activity statistics
+- Logout functionality
 
-#### Response Formats
+#### 2. CV Analysis
+- Drag-and-drop CV upload (PDF/DOC/DOCX/TXT)
+- Enter job description (text area)
+- Get comprehensive analysis:
+  - Match score
+  - Skills analysis
+  - AI-generated feedback
+  - Improvement recommendations
 
-**CV Analysis Response:**
+#### 3. Job Search
+- Choose job source:
+  - **Jobicy API**: Fast, curated remote jobs
+  - **JobSpy**: Scrape Indeed, LinkedIn, ZipRecruiter, Glassdoor
+- Optional filters:
+  - Region (Remote, USA, Europe, Asia, etc.)
+  - Job title (for JobSpy)
+  - Number of results (5-50)
+  - Sites to scrape (for JobSpy)
+- Real-time progress indicators
 
-```json
-{
-  "matched_skills": ["Python", "Django", "FastAPI"],
-  "missing_skills": ["Docker", "Kubernetes"],
-  "score": 75,
-  "lora_score": 82,
-  "feedback": {
-    "overall_analysis": "Well-structured CV with clear sections...",
-    "positive_feedback": "Strong Python and web development experience...",
-    "negative_feedback": "Consider adding containerization skills..."
-  }
-}
-```
-
-**Job Recommendations Response:**
-
-```json
-{
-  "jobs": [
-    {
-      "title": "Senior Python Developer",
-      "company": "Tech Corp",
-      "location": "Remote",
-      "match_score": 0.87,
-      "match_reason": "Strong match: 5+ years Python, FastAPI experience, remote work",
-      "description": "Looking for experienced Python developer...",
-      "tags": ["Python", "FastAPI", "Docker", "AWS"],
-      "url": "https://jobicy.com/job/12345"
-    }
-  ],
-  "total_jobs_analyzed": 150,
-  "region_filter": "Remote"
-}
-```
-
-## 🔧 Configuration
-
-### Skills Knowledge Base
-The system uses a curated skills database (`tools/skills_kb.json`) with categories:
-- Programming Languages
-- Web Frameworks
-- Databases
-- DevOps Tools
-- Machine Learning
-- Cloud Platforms
-
-### LoRA Model Integration
-For enhanced semantic matching, configure external LoRA API:
-```bash
-LORA_MATCHER_API_URL=http://your-lora-api:8080
-LORA_MATCHER_API_KEY=your-secret-key
-```
+#### 4. Job Results
+- Filter by match score range
+- Sort by score or date
+- Search by keywords
+- View detailed job descriptions
+- Save jobs for later
+- Direct application links
 
 ## 📁 Project Structure
 
 ```
 cvanalyzer/
-├── main.py                    # FastAPI backend application
-├── app.py                     # Flask frontend application
-├── config.py                  # Configuration management
-├── langchain_integration.py   # LoRA model integration
-├── schemas.py                 # Pydantic data models
-├── requirements.txt           # Python dependencies
-├── .env                       # Environment variables
-├── tools/                     # Core analysis modules
-│   ├── skill_extractor.py     # RAG pipeline & skill analysis
-│   ├── feedback_generator.py  # AI feedback generation
-│   ├── cv_parser.py          # Document parsing utilities
-│   └── skills_kb.json        # Skills knowledge base
-├── templates/                 # HTML templates
-│   ├── index.html            # Upload page
-│   └── result.html           # Results display
-├── static/                   # CSS and assets
-│   └── styles/
-└── logs/                     # Application logs
-```
-
-## 🧪 Testing
-
-### Unit Tests
-```bash
-python -m pytest tests/
-```
-
-### Manual Testing
-```bash
-# Test CV parsing
-python -c "from tools.cv_parser import parse_cv; print(parse_cv('sample.pdf'))"
-
-# Test skill extraction
-python -c "from tools.skill_extractor import extract_and_score_skills; print(extract_and_score_skills('Python developer', 'Need Python skills'))"
-```
-
-## 📊 Monitoring
-
-### LangSmith Integration
-When configured, the system provides comprehensive tracing:
-- Skill extraction chain performance
-- LLM prompt/response tracking
-- Error tracking and debugging
-- Performance metrics
-
-### Logging
-- Frontend logs: `/tmp/logs/frontend.log`
-- Backend logs: `logs/backend.log`
-- Debug level logging for all components
-
-## 🔧 Development
-
-### Adding New Skills
-1. Edit `tools/skills_kb.json`
-2. Add new skill with category and description
-3. Restart the application to reload the knowledge base
-
-### Custom LoRA Models
-Implement the API interface:
-```
-POST /match
-Content-Type: application/json
-Authorization: Bearer <api_key>
-
-{
-  "resume_text": "CV content",
-  "job_description": "Job requirements"
-}
-
-Response:
-{
-  "match_score": 0.85,
-  "confidence": "High"
-}
-```
-
-### Extending Feedback
-Modify `tools/feedback_generator.py` to add new feedback categories or customize prompts.
-
-## 🚨 Troubleshooting
-
-### Common Issues
-
-1. **OpenAI API Errors**
-   - Verify API key in `.env`
-   - Check rate limits and billing
-
-2. **File Upload Issues**
-   - Ensure file size under 16MB
-   - Verify PDF/DOCX format
-
-3. **LoRA API Timeouts**
-   - Check external API availability
-   - Verify network connectivity
-   - Review API key configuration
-
-### Debug Mode
-Enable detailed logging:
-```bash
-export LANGSMITH_TRACING=true
-export DEBUG=true
+├── backend/
+│   ├── app.py                      # Flask server (OAuth, API gateway)
+│   ├── main.py                     # FastAPI server (AI/ML)
+│   ├── config.py                   # Configuration management
+│   ├── database.py                 # SQLAlchemy setup
+│   ├── models.py                   # Database models
+│   ├── schemas.py                  # Pydantic schemas
+│   ├── alembic.ini                 # Alembic configuration
+│   ├── migrations/                 # Database migrations
+│   ├── auth/                       # OAuth module
+│   │   ├── __init__.py
+│   │   ├── routes.py               # Auth endpoints
+│   │   ├── middleware.py           # JWT decorators
+│   │   └── oauth_config.py         # OAuth setup
+│   └── tools/                      # AI/ML modules
+│       ├── cv_parser.py            # Document parsing
+│       ├── skill_extractor.py      # RAG pipeline
+│       ├── feedback_generator.py   # AI feedback
+│       ├── job_fetcher.py          # Job sources
+│       └── skills_kb.json          # Skills database
+├── frontend/
+│   ├── src/
+│   │   ├── api/                    # API client layer
+│   │   │   ├── client.ts           # Axios instance
+│   │   │   ├── auth.ts             # Auth endpoints
+│   │   │   ├── cv.ts               # CV endpoints
+│   │   │   └── jobs.ts             # Job endpoints
+│   │   ├── components/             # React components
+│   │   │   └── ProtectedRoute.tsx  # Auth guard
+│   │   ├── pages/                  # Page components
+│   │   │   ├── LoginPage.tsx       # Google OAuth login
+│   │   │   ├── AuthCallback.tsx    # OAuth callback
+│   │   │   ├── DashboardPage.tsx   # User dashboard
+│   │   │   ├── CVUploadPage.tsx    # CV analysis
+│   │   │   ├── JobSearchPage.tsx   # Job search form
+│   │   │   └── JobResultsPage.tsx  # Job results display
+│   │   ├── hooks/                  # Custom React hooks
+│   │   │   └── useAuth.ts          # Auth hook
+│   │   ├── store/                  # Zustand stores
+│   │   │   └── authStore.ts        # Auth state
+│   │   ├── types/                  # TypeScript types
+│   │   │   └── index.ts            # Type definitions
+│   │   ├── App.tsx                 # Main app component
+│   │   └── main.tsx                # Entry point
+│   ├── package.json                # npm dependencies
+│   ├── vite.config.ts              # Vite configuration
+│   ├── tailwind.config.js          # Tailwind CSS config
+│   └── tsconfig.json               # TypeScript config
+├── .env                            # Environment variables
+├── .env.example                    # Example environment
+├── requirements.txt                # Python dependencies
+├── README.md                       # This file
+├── OAUTH_SETUP.md                  # OAuth setup guide
+├── PORT_CONFIGURATION.md           # Port documentation
+└── FRONTEND_MODERNIZATION_PLAN.md  # Migration plan
 ```
 
 

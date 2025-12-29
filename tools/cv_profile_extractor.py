@@ -1,20 +1,5 @@
 """
-Lightweight CV Profile Extractor
-
-Extracts key information from CVs for job matching without full skill analysis.
-Optimized for speed when matching against multiple job listings.
-
-Features:
-- Quick extraction of key CV metadata
-- Experience level detection
-- Primary skills identification
-- Job title/role extraction
-- Location preferences
-- No heavy RAG pipeline - uses simple LLM extraction
-
-Dependencies:
-- langchain: For LLM integration
-- openai: For embeddings and completion
+Lightweight CV Profile Extractor.
 """
 
 from typing import Dict, Any, List, Optional
@@ -75,9 +60,6 @@ class CVProfile(BaseModel):
 class LightweightCVExtractor:
     """
     Lightweight CV profile extractor for efficient job matching.
-    
-    Uses a single LLM call to extract key information without
-    the overhead of the full RAG pipeline.
     """
     
     def __init__(
@@ -101,18 +83,6 @@ class LightweightCVExtractor:
     def extract_profile(self, cv_text: str) -> CVProfile:
         """
         Extract CV profile from text.
-        
-        Args:
-            cv_text (str): Raw CV text content
-            
-        Returns:
-            CVProfile: Extracted profile information
-            
-        Example:
-            >>> extractor = LightweightCVExtractor()
-            >>> profile = extractor.extract_profile(cv_text)
-            >>> print(profile.primary_skills)
-            ['Python', 'Django', 'AWS', ...]
         """
         try:
             # Create extraction prompt

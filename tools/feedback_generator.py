@@ -1,21 +1,5 @@
 """
-Feedback Generator Module for CV Analyzer
-
-This module provides AI-powered feedback generation for CV analysis using LangChain and OpenAI.
-It generates structured feedback including overall analysis, positive feedback based on matched 
-skills, and constructive feedback based on missing skills.
-
-Key Features:
-- LangSmith tracing integration for monitoring and debugging
-- Structured feedback generation with character limits
-- Configuration-based API key management
-- Comprehensive error handling and logging
-
-Dependencies:
-- langchain_openai: For ChatOpenAI model integration
-- langsmith: For tracing and monitoring
-- config: For environment variable management
-
+Feedback Generator Module for CV Analyzer.
 """
 
 import os
@@ -61,36 +45,6 @@ parser = StrOutputParser()
 def generate_feedback(matched_skills, missing_skills, cv_file_path):
     """
     Generate comprehensive AI-powered feedback for CV analysis.
-    
-    This function creates structured feedback by analyzing the CV content and comparing
-    it against matched and missing skills. It provides three types of feedback:
-    overall analysis, positive feedback, and constructive feedback.
-    
-    Args:
-        matched_skills (list): List of skills that were found in both CV and job description
-        missing_skills (list): List of skills mentioned in job description but missing from CV
-        cv_file_path (str): Absolute path to the uploaded CV file for parsing
-        
-    Returns:
-        dict: Structured feedback containing:
-            - overall_analysis (str): General assessment of CV quality and structure (max 200 chars)
-            - positive_feedback (str): Strengths based on matched skills (max 200 chars)
-            - negative_feedback (str): Constructive feedback based on missing skills (max 200 chars)
-            
-    Example:
-        >>> matched = ["Python", "Django", "FastAPI"]
-        >>> missing = ["Docker", "Kubernetes"]
-        >>> feedback = generate_feedback(matched, missing, "/tmp/resume.pdf")
-        >>> print(feedback["overall_analysis"])
-        "Well-structured CV with clear technical skills and experience sections..."
-        
-    Raises:
-        Exception: If CV parsing fails or LLM API calls encounter errors
-        
-    Note:
-        - All feedback is limited to 200 characters for concise presentation
-        - Uses LangSmith tracing with specific run names for monitoring
-        - Requires valid OpenAI API key in configuration
     """
     # Parse the CV text
     cv_text = parse_cv(cv_file_path)

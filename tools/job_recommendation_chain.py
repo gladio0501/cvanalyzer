@@ -1,19 +1,6 @@
 """
-Job Recommendation Chain
-
-Lightweight chain for matching CVs against multiple job listings.
-Uses CV profile extraction + LoRA for efficient, accurate matching.
-
-Features:
-- Batch job scoring against CV profile
-- LoRA integration for semantic similarity
-- Ranking and filtering of job matches
-- Explanation generation for top matches
-- Optimized for speed (no heavy RAG)
-
-Dependencies:
-- langchain: For chain orchestration
-- openai: For LLM
+Job Recommendation Chain.
+matches CVs against multiple job listings suitable for speed.
 """
 
 from typing import List, Dict, Any, Optional, Tuple
@@ -48,12 +35,7 @@ class JobMatch(BaseModel):
 class JobRecommendationChain:
     """
     Lightweight chain for job recommendations.
-    
-    Matches CV profile against multiple jobs efficiently using:
-    1. Quick profile extraction
-    2. LoRA semantic matching
-    3. Skills/experience alignment
-    4. Intelligent ranking
+    Matches CV profile against multiple jobs efficiently.
     """
     
     def __init__(
@@ -66,13 +48,6 @@ class JobRecommendationChain:
     ):
         """
         Initialize the job recommendation chain.
-        
-        Args:
-            lora_api_url (str): LoRA model API URL
-            lora_api_key (str): LoRA model API key  
-            use_lora (bool): Whether to use LoRA for scoring
-            model_name (str): OpenAI model for explanations
-            job_source (JobSource): Which job source to use (JOBICY or JOBSPY)
         """
         self.job_fetcher = UnifiedJobFetcher(source=job_source)
         self.job_source = job_source
@@ -87,7 +62,58 @@ class JobRecommendationChain:
             self.lora_matcher: Optional[ResumeJobMatcherTool] = None
             
         self.llm = ChatOpenAI(model=model_name, temperature=0.3)
-    
+        
+        # Load skills knowledge base for better matching
+        self.known_skills = self._load_skills_kb()
+
+    def _load_skills_kb(self) -> set:
+        """Load skills from the shared knowledge base."""
+        try:
+            import json
+            import os
+            
+            # Try to find the file relative to this script
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            kb_path = os.path.join(current_dir, 'skills_kb.json')
+            
+            if os.path.exists(kb_path):
+                with open(kb_path, 'r') as f:
+                    skills_data = json.load(f)
+                    return {s['skill'].lower() for s in skills_data}
+            
+            # Fallback for when running from project root
+            elif os.path.exists('tools/skills_kb.json'):
+                with open('tools/skills_kb.json', 'r') as f:
+                    skills_data = json.load(f)
+                    return {s['skill'].lower() for s in skills_data}
+            
+            logger.warning("Could not find skills_kb.json, using empty skill set")
+            return set()
+        except Exception as e:
+            logger.error(f"Error loading skills KB: {e}")
+            return set()
+
+    def _extract_job_skills(self, job_text: str) -> set:
+        """Extract skills mentioned in the job text using the KB."""
+        job_text_lower = job_text.lower()
+        found_skills = set()
+        
+        # Simple string matching for now (fast)
+        # Could be optimized with regex for word boundaries
+        for skill in self.known_skills:
+            # Basic check: is the skill name in the text?
+            # Ideally we want word boundaries, e.g. " Go " not "Golang" matched by "Go"
+            if len(skill) <= 3:
+                # For short skills (C++, Go, AWS), require boundaries
+                import re
+                if re.search(r'\b' + re.escape(skill) + r'\b', job_text_lower):
+                    found_skills.add(skill)
+            else:
+                if skill in job_text_lower:
+                    found_skills.add(skill)
+                    
+        return found_skills
+
     def recommend_jobs(
         self,
         cv_text: str,
@@ -100,24 +126,6 @@ class JobRecommendationChain:
     ) -> List[JobMatch]:
         """
         Get job recommendations for a CV.
-        
-        Args:
-            cv_text (str): Raw CV text
-            region (str): Filter jobs by region (e.g., "Remote", "USA")
-            job_title (str): Job title to search for (primarily for JobSpy)
-            limit (int): Max jobs to fetch from source
-            top_k (int): Return top K matches
-            min_score (float): Minimum match score threshold (NOTE: If no jobs meet threshold, all jobs are returned with their scores)
-            jobspy_sites (List[str]): Sites to scrape for JobSpy: 'indeed', 'linkedin', 'zip_recruiter', 'glassdoor'
-            
-        Returns:
-            List[JobMatch]: Ranked job matches (all jobs if none meet threshold)
-            
-        Example:
-            >>> chain = JobRecommendationChain(lora_api_url="...", lora_api_key="...")
-            >>> matches = chain.recommend_jobs(cv_text, region="Remote", top_k=10)
-            >>> for match in matches[:5]:
-            ...     print(f"{match.match_score:.1f}% - {match.job_title} at {match.company}")
         """
         try:
             logger.info(f"Starting job recommendation for region: {region}, source: {self.job_source.value}")
@@ -291,7 +299,7 @@ class JobRecommendationChain:
             job_type=job.get('job_type', 'Full-time'),
             match_reasons=[]
         )
-    
+
     def _calculate_profile_score(
         self,
         cv_profile: CVProfile,
@@ -300,49 +308,85 @@ class JobRecommendationChain:
         """
         Calculate match score based on CV profile and job data.
         
-        Factors:
-        - Skills overlap
-        - Job title match
-        - Location match
-        - Experience level
+        Weights:
+        - Skills Coverage: 60%
+        - Job Title Match: 20%
+        - Experience Match: 10%
+        - Location: 5%
+        - Industry: 5%
         """
         score = 0.0
         
         job_text = f"{job['title']} {job['description']} {' '.join(job.get('categories', []))}".lower()
         
-        # Skills matching (50% weight)
-        matching_skills = sum(
-            1 for skill in cv_profile.primary_skills
-            if skill.lower() in job_text
-        )
-        if cv_profile.primary_skills:
-            skills_ratio = matching_skills / len(cv_profile.primary_skills)
-            score += skills_ratio * 50
+        # 1. Skills Coverage (60% weight)
+        # Fix: We now check how many of the JOB's required skills the candidate has.
+        job_required_skills = self._extract_job_skills(job_text)
         
-        # Job title relevance (20% weight)
+        if not job_required_skills:
+             # Fallback if no skills detected in job: check if CV skills are in job text
+             # This prevents 0 score on poorly parsed jobs
+             matching_cv_skills = sum(1 for s in cv_profile.primary_skills if s.lower() in job_text)
+             denom = len(cv_profile.primary_skills) if cv_profile.primary_skills else 1
+             skills_score = (matching_cv_skills / denom) * 60
+        else:
+            # We have identified skills in the job. How many does the candidate have?
+            # Normalize CV skills to lower case set
+            cv_skills_set = {s.lower() for s in cv_profile.primary_skills}
+            
+            # Intersection
+            matching_skills = job_required_skills.intersection(cv_skills_set)
+            
+            # Coverage ratio
+            coverage = len(matching_skills) / len(job_required_skills)
+            skills_score = coverage * 60
+            
+        score += skills_score
+        
+        # 2. Job title relevance (20% weight)
+        title_score = 0
+        job_title_lower = job['title'].lower()
         for cv_title in cv_profile.job_titles:
-            if any(word.lower() in job['title'].lower() for word in cv_title.split() if len(word) > 3):
-                score += 20
+            # Split title into words to find partial matches (e.g. "Engineer" in "Software Engineer")
+            cv_title_words = [w.lower() for w in cv_title.split() if len(w) > 3]
+            match_count = sum(1 for w in cv_title_words if w in job_title_lower)
+            if match_count > 0:
+                # Proportional score based on how many words matched
+                # e.g. "Senior Python Engineer" vs "Python Engineer" -> Good match
+                title_score = 20
                 break
+        score += title_score
         
-        # Role match (15% weight)
-        for preferred_role in cv_profile.preferred_roles:
-            if preferred_role.lower() in job_text:
-                score += 15
-                break
+        # 3. Experience Match (10% weight)
+        # Penalize if job is Senior and candidate is Junior
+        exp_score = 10 # Default full points
         
-        # Location preference (10% weight)
+        is_job_senior = any(w in job_title_lower for w in ['senior', 'lead', 'principal', 'architect', 'manager'])
+        is_candidate_junior = cv_profile.experience_years < 3
+        
+        if is_job_senior and is_candidate_junior:
+            exp_score = 0 # Significant penalty/mismatch
+        elif is_job_senior and cv_profile.experience_years < 5:
+            exp_score = 5 # Partial penalty
+            
+        score += exp_score
+        
+        # 4. Location preference (5% weight)
+        loc_score = 0
         if cv_profile.location_preferences:
             for pref in cv_profile.location_preferences:
                 if pref.lower() in job['location'].lower():
-                    score += 10
+                    loc_score = 5
                     break
+        score += loc_score
         
-        # Industry match (5% weight)
+        # 5. Industry match (5% weight)
+        ind_score = 0
         for industry in cv_profile.industries:
             if industry.lower() in job_text:
-                score += 5
+                ind_score = 5
                 break
+        score += ind_score
         
         return min(score, 100)  # Cap at 100
     
@@ -439,6 +483,20 @@ def get_job_recommendations(
 if __name__ == "__main__":
     # Test the recommendation chain
     logging.basicConfig(level=logging.INFO)
+    
+    # Load environment variables
+    try:
+        from config import load_config
+        config = load_config()
+        # Ensure OpenAI key is set in environment for LangChain
+        import os
+        if config.openai_api_key:
+            os.environ["OPENAI_API_KEY"] = config.openai_api_key.get_secret_value()
+            print("✅ Loaded OpenAI API key from config")
+    except ImportError:
+        print("⚠️ Could not import config, verifying manually...")
+        from dotenv import load_dotenv
+        load_dotenv()
     
     sample_cv = """
     Sarah Johnson
