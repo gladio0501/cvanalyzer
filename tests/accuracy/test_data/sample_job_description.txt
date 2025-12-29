@@ -1,0 +1,46 @@
+Senior Backend Developer
+
+Company: TechCorp Inc.
+Location: Remote (US-based)
+Type: Full-time
+Salary: $150,000 - $200,000
+
+ABOUT US
+TechCorp is a leading technology company building innovative solutions for enterprise clients. We're looking for an experienced backend developer to join our growing team.
+
+JOB DESCRIPTION
+We are seeking a Senior Backend Developer to design, develop, and maintain our core backend services. You will work closely with our product and frontend teams to deliver high-quality solutions.
+
+RESPONSIBILITIES
+- Design and implement RESTful APIs and microservices
+- Build and maintain scalable backend systems
+- Collaborate with cross-functional teams
+- Mentor junior developers and conduct code reviews
+- Participate in architectural decisions
+
+REQUIREMENTS
+Must Have:
+- 5+ years of experience with Python
+- Experience with FastAPI or Django
+- Strong knowledge of REST API design
+- Experience with cloud platforms (AWS, GCP, or Azure)
+- Knowledge of containerization (Docker, Kubernetes)
+- Database experience (PostgreSQL, MongoDB)
+
+Nice to Have:
+- Machine Learning experience
+- Experience leading development teams
+- Knowledge of microservices architecture
+- CI/CD experience
+- Open source contributions
+
+BENEFITS
+- Competitive salary and equity
+- Fully remote work
+- Health, dental, and vision insurance
+- 401(k) matching
+- Unlimited PTO
+- Learning and development budget
+
+HOW TO APPLY
+Submit your resume and a brief cover letter explaining why you're interested in this role.

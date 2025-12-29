@@ -66,3 +66,10 @@ authlib==1.6.5
 Flask-JWT-Extended==4.7.1
 PyJWT==2.10.1
 Flask-CORS==5.0.0
+
+# Testing dependencies
+pytest==8.3.5
+pytest-asyncio==0.24.0
+pytest-cov==6.0.0
+httpx==0.28.1
+reportlab==4.4.1

@@ -1,0 +1,38 @@
+Jane Smith
+Senior Backend Developer
+
+PROFESSIONAL SUMMARY
+Senior Backend Developer with 7+ years of experience in Python development, microservices architecture, and cloud deployments. Strong track record of leading development teams and delivering scalable solutions.
+
+EXPERIENCE
+
+Lead Backend Developer
+CloudTech Inc. | San Francisco, CA | 2019 - Present
+- Architected and developed REST APIs using Python and FastAPI
+- Deployed and managed services on AWS using Docker and Kubernetes
+- Designed and optimized PostgreSQL and MongoDB database schemas
+- Led a team of 4 backend developers, conducting code reviews and mentoring
+- Implemented CI/CD pipelines using GitHub Actions
+
+Backend Developer
+DataCorp | New York, NY | 2016 - 2019
+- Built Django applications for large-scale data processing
+- Implemented microservices architecture for improved scalability
+- Applied machine learning techniques for recommendation systems
+- Worked with Redis for caching and session management
+
+TECHNICAL SKILLS
+- Languages: Python (7 years), JavaScript, SQL
+- Frameworks: FastAPI, Django, Flask
+- Cloud: AWS (EC2, S3, RDS, Lambda), Docker, Kubernetes
+- Databases: PostgreSQL, MongoDB, Redis
+- Machine Learning: TensorFlow, scikit-learn
+- Tools: Git, CI/CD, REST API Design
+
+EDUCATION
+Master of Computer Science
+Massachusetts Institute of Technology (MIT) | 2016
+
+CERTIFICATIONS
+- AWS Solutions Architect Associate
+- Kubernetes Administrator (CKA)

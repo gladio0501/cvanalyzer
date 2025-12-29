@@ -80,9 +80,8 @@ Pipfile.lock
 Thesis_preview*.md
 Thesis_preview*.pdf
 
-# Test files (local testing)
-test_*.py
-tests/
+# Test files (local ad-hoc testing in root directory)
+/test_*.py
 
 # Database files
 *.db
